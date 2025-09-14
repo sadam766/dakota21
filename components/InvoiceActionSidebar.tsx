@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import type { PaymentOverviewInvoice } from '../types';
 import { SendIcon, SettingsIcon } from './icons';
@@ -8,12 +6,13 @@ interface InvoiceActionPanelProps {
     invoice: PaymentOverviewInvoice;
     onStatusChange: (newStatus: PaymentOverviewInvoice['status']) => void;
     onPrintTypeChange: (newPrintType: 'Original' | 'Copy') => void;
+    onCreatedByChange: (name: string) => void;
     onSave: () => void;
     onPreview: () => void;
     onSend: () => void;
 }
 
-const InvoiceActionPanel: React.FC<InvoiceActionPanelProps> = ({ invoice, onStatusChange, onPrintTypeChange, onSave, onPreview, onSend }) => {
+const InvoiceActionPanel: React.FC<InvoiceActionPanelProps> = ({ invoice, onStatusChange, onPrintTypeChange, onCreatedByChange, onSave, onPreview, onSend }) => {
 
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         onStatusChange(e.target.value as PaymentOverviewInvoice['status']);
@@ -75,6 +74,20 @@ const InvoiceActionPanel: React.FC<InvoiceActionPanelProps> = ({ invoice, onStat
                             <option>Original</option>
                             <option>Copy</option>
                         </select>
+                    </div>
+                    <div>
+                        <label htmlFor="created-by" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                           Pembuat Invoice
+                        </label>
+                        <input
+                            type="text"
+                            id="created-by"
+                            name="createdBy"
+                            className="block w-full py-2 px-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            value={invoice.createdBy || ''}
+                            onChange={(e) => onCreatedByChange(e.target.value)}
+                            placeholder="Nama pembuat"
+                        />
                     </div>
                 </div>
             </div>

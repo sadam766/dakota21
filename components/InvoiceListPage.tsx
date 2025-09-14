@@ -55,50 +55,47 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
-
-    const tabCounts = useMemo(() => {
-        const numberCounts = invoices.reduce((acc, inv) => {
-            acc[inv.number] = (acc[inv.number] || 0) + 1;
+    
+    const tabs = useMemo(() => {
+        const counts = invoices.reduce((acc, inv) => {
+            acc['All Invoices'] = (acc['All Invoices'] || 0) + 1;
+            acc[inv.status] = (acc[inv.status] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const duplicateInvoicesCount = invoices.filter(inv => numberCounts[inv.number] > 1).length;
 
-        return {
-            'All Invoices': invoices.length,
-            'Draft': invoices.filter(inv => inv.status === 'Draft').length,
-            'Paid': invoices.filter(inv => inv.status === 'Paid').length,
-            'Unpaid': invoices.filter(inv => inv.status === 'Unpaid').length,
-            'Pending': invoices.filter(inv => inv.status === 'Pending').length,
-            'Overdue': invoices.filter(inv => inv.status === 'Overdue').length,
-            'Duplicate': duplicateInvoicesCount,
-        };
+        const orderedTabs = ['All Invoices', 'Draft', 'Paid', 'Unpaid', 'Pending', 'Overdue'];
+        
+        return orderedTabs.map(tab => ({
+            name: tab,
+            count: counts[tab] || 0
+        })).filter(tab => tab.count > 0 || tab.name === 'All Invoices');
+
     }, [invoices]);
-    
-    const tabs: Array<keyof typeof tabCounts> = ['All Invoices', 'Draft', 'Paid', 'Unpaid', 'Pending', 'Overdue', 'Duplicate'];
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+                setOpenActionMenuId(null);
+            }
+            if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+                setIsFilterOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
 
     useEffect(() => {
         setCurrentPage(1);
     }, [activeTab, searchTerm, filters]);
-    
-    const filteredInvoices = useMemo(() => {
-      const duplicateNumbers = new Set(
-          Object.entries(
-              invoices.reduce((acc, inv) => {
-                  acc[inv.number] = (acc[inv.number] || 0) + 1;
-                  return acc;
-              }, {} as Record<string, number>)
-          )
-          .filter(([, count]) => count > 1)
-          .map(([number]) => number)
-      );
 
+    const filteredInvoices = useMemo(() => {
       return invoices
           .filter(invoice => {
               if (activeTab === 'All Invoices') return true;
-              if (activeTab === 'Duplicate') return duplicateNumbers.has(invoice.number);
-              
-              const tabStatus = activeTab.replace(' Invoices', '');
-              return invoice.status === tabStatus;
+              return invoice.status === activeTab;
           })
           .filter(invoice => {
               const term = searchTerm.toLowerCase();
@@ -106,8 +103,7 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
               return (
                   invoice.number.toLowerCase().includes(term) ||
                   invoice.client.toLowerCase().includes(term) ||
-                  (invoice.soNumber || '').toLowerCase().includes(term) ||
-                  invoice.date.toLowerCase().includes(term) ||
+                  invoice.soNumber?.toLowerCase().includes(term) ||
                   String(invoice.amount).includes(term) ||
                   invoice.status.toLowerCase().includes(term)
               );
@@ -116,7 +112,7 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
             const { amountMin, amountMax, dateStart, dateEnd } = filters;
             if (amountMin !== '' && invoice.amount < parseFloat(amountMin)) return false;
             if (amountMax !== '' && invoice.amount > parseFloat(amountMax)) return false;
-            
+
             const invoiceDate = new Date(invoice.date);
             if (dateStart) {
                 const startDate = new Date(dateStart);
@@ -131,7 +127,7 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
             return true;
           });
     }, [activeTab, searchTerm, invoices, filters]);
-
+    
     const paginatedData = useMemo(() => {
         const totalItems = filteredInvoices.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -150,21 +146,6 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
         };
     }, [filteredInvoices, currentPage, itemsPerPage]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
-                setOpenActionMenuId(null);
-            }
-            if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
-                setIsFilterOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
-
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
             setSelectedRows(new Set(filteredInvoices.map(i => i.id)));
@@ -182,23 +163,26 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
         }
         setSelectedRows(newSelection);
     }
-    
-    const handleEditInvoice = (invoice: PaymentOverviewInvoice) => {
+
+    const handleEdit = (invoice: PaymentOverviewInvoice) => {
         setEditingInvoice(invoice);
         setActiveView('invoice/add');
         setOpenActionMenuId(null);
-    };
-
-    const handleDeleteInvoice = (invoiceId: string) => {
-        onDeleteInvoice(invoiceId);
-        setOpenActionMenuId(null);
-    };
-
-    const handleCreateNew = () => {
-        setEditingInvoice(null);
-        setActiveView('invoice/add');
-    };
+    }
     
+    const handlePreview = (invoice: PaymentOverviewInvoice) => {
+        setEditingInvoice(invoice);
+        setActiveView('invoice/add'); // Go to editor first, then user can click preview
+        setOpenActionMenuId(null);
+    }
+
+    const handleDelete = (invoiceId: string) => {
+        if (window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+            onDeleteInvoice(invoiceId);
+        }
+        setOpenActionMenuId(null);
+    }
+
     const handleExport = () => {
         const ws = XLSX.utils.json_to_sheet(filteredInvoices);
         const wb = XLSX.utils.book_new();
@@ -211,17 +195,15 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
     };
 
     const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-        // This should be handled by a parent function
         alert('Import functionality should be handled by App.tsx');
     };
 
     return (
-        <div className="p-6 md:p-8 font-sans bg-[#F9FAFB] dark:bg-slate-900">
+        <div className="p-6 md:p-8 font-sans bg-[#F9FAFB] dark:bg-slate-900 min-h-full">
             <PaymentOverview invoices={filteredInvoices} />
 
-            {/* Invoice Payments Section */}
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Invoice Payments</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Invoices</h1>
                 <div className="flex items-center space-x-3">
                     <input type="file" ref={fileInputRef} onChange={handleImport} style={{ display: 'none' }} accept=".xlsx, .xls"/>
                     <button onClick={handleImportClick} className="flex items-center space-x-2 px-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-600 text-sm shadow-sm">
@@ -230,8 +212,8 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
                     <button onClick={handleExport} className="flex items-center space-x-2 px-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-600 text-sm shadow-sm">
                         <ExportIcon className="w-5 h-5" /><span>Export</span>
                     </button>
-                    <button onClick={handleCreateNew} className="flex items-center space-x-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 text-sm shadow-sm">
-                        <PlusIcon className="w-5 h-5" /> <span>New invoice</span>
+                    <button onClick={() => { setEditingInvoice(null); setActiveView('invoice/add')}} className="flex items-center space-x-2 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 text-sm shadow-sm">
+                        <PlusIcon className="w-5 h-5" /> <span>New Invoice</span>
                     </button>
                 </div>
             </div>
@@ -239,11 +221,11 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
             <div className="mb-6">
                 <div className="flex flex-wrap items-center border-b border-gray-200 dark:border-slate-700">
                     {tabs.map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)}
-                            className={`px-1 pb-3 pt-1 mx-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === tab ? 'text-teal-600 border-b-2 border-teal-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
-                            {tab} 
-                            <span className={`ml-2 px-2 py-0.5 rounded-md text-xs ${activeTab === tab ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300'}`}>
-                                {tabCounts[tab]}
+                        <button key={tab.name} onClick={() => setActiveTab(tab.name)}
+                            className={`px-1 pb-3 pt-1 mx-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === tab.name ? 'text-teal-600 border-b-2 border-teal-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
+                            {tab.name} 
+                            <span className={`ml-2 px-2 py-0.5 rounded-md text-xs ${activeTab === tab.name ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300'}`}>
+                                {tab.count}
                             </span>
                         </button>
                     ))}
@@ -262,7 +244,7 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
                           onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                     <div className="relative" ref={filterRef}>
+                    <div className="relative" ref={filterRef}>
                         <button onClick={() => setIsFilterOpen(prev => !prev)} className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-600 text-sm shadow-sm">
                             <FilterIcon className="w-5 h-5" /><span>Filters</span>
                         </button>
@@ -307,29 +289,30 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
                                     aria-label="Select all invoices"
                                     />
                                 </th>
-                                <TableHeader label="NUMBER" />
-                                <TableHeader label="CLIENT" />
-                                <TableHeader label="ALAMAT" />
+                                <TableHeader label="INVOICE" />
+                                <TableHeader label="SO NUMBER" />
+                                <TableHeader label="CUSTOMER" />
                                 <TableHeader label="DATE" />
                                 <TableHeader label="AMOUNT" />
                                 <TableHeader label="STATUS" />
-                                <th className="p-4 text-center">
-                                     Actions
+                                <TableHeader label="PEMBUAT INVOICE" />
+                                <th className="p-4">
+                                    <span className="sr-only">Actions</span>
                                 </th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={8} className="text-center p-6 text-gray-500 dark:text-gray-400">Loading invoices...</td>
+                                    <td colSpan={9} className="text-center p-6 text-gray-500 dark:text-gray-400">Loading invoices...</td>
                                 </tr>
                             ) : error ? (
                                 <tr>
-                                    <td colSpan={8} className="text-center p-6 text-red-500">{error}</td>
+                                    <td colSpan={9} className="text-center p-6 text-red-500">{error}</td>
                                 </tr>
                             ) : paginatedData.currentItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="text-center p-6 text-gray-500 dark:text-gray-400">No invoices found.</td>
+                                    <td colSpan={9} className="text-center p-6 text-gray-500 dark:text-gray-400">No invoices found.</td>
                                 </tr>
                             ) : (
                                 paginatedData.currentItems.map((invoice) => (
@@ -342,24 +325,31 @@ const InvoiceListPage: React.FC<InvoiceListPageProps> = ({ invoices, onDeleteInv
                                             />
                                         </td>
                                         <td className="p-4 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{invoice.number}</td>
-                                        <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{invoice.client}</td>
-                                        <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{invoice.billToAddress || '-'}</td>
+                                        <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{invoice.soNumber}</td>
+                                        <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                            {invoice.client}
+                                        </td>
                                         <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{invoice.date}</td>
                                         <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{invoice.amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</td>
                                         <td className="p-4 whitespace-nowrap"><StatusBadge status={invoice.status} /></td>
+                                        <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{invoice.createdBy || '-'}</td>
                                         <td className="p-4 text-center">
                                             <div className="relative inline-block text-left" ref={openActionMenuId === invoice.id ? actionMenuRef : null}>
-                                                <button onClick={() => setOpenActionMenuId(invoice.id === openActionMenuId ? null : invoice.id)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                                <button onClick={() => setOpenActionMenuId(invoice.id === openActionMenuId ? null : invoice.id)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-label={`Actions for invoice ${invoice.number}`}>
                                                     <MoreVerticalIcon className="w-5 h-5" />
                                                 </button>
                                                 {openActionMenuId === invoice.id && (
-                                                    <div className="origin-top-right absolute right-0 mt-2 w-32 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black dark:ring-slate-700 ring-opacity-5 z-10">
+                                                    <div className="origin-top-right absolute right-0 mt-2 w-36 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black dark:ring-slate-700 ring-opacity-5 z-10">
                                                         <div className="py-1" role="menu" aria-orientation="vertical">
-                                                            <button onClick={() => handleEditInvoice(invoice)} className="w-full text-left text-gray-700 dark:text-gray-300 group flex items-center px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700" role="menuitem">
+                                                             <button onClick={() => handlePreview(invoice)} className="w-full text-left text-gray-700 dark:text-gray-300 group flex items-center px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700" role="menuitem">
+                                                                <EyeIcon className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"/>
+                                                                Preview
+                                                            </button>
+                                                             <button onClick={() => handleEdit(invoice)} className="w-full text-left text-gray-700 dark:text-gray-300 group flex items-center px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700" role="menuitem">
                                                                 <PencilIcon className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500"/>
                                                                 Edit
                                                             </button>
-                                                            <button onClick={() => onDeleteInvoice(invoice.id)} className="w-full text-left text-red-600 dark:text-red-400 group flex items-center px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700" role="menuitem">
+                                                            <button onClick={() => handleDelete(invoice.id)} className="w-full text-left text-red-600 dark:text-red-400 group flex items-center px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700" role="menuitem">
                                                                 <TrashIcon className="mr-3 h-5 w-5 text-red-400 group-hover:text-red-500"/>
                                                                 Delete
                                                             </button>

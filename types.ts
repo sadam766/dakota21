@@ -1,4 +1,5 @@
 
+
 import type React from 'react';
 
 export interface NavItemType {
@@ -55,6 +56,7 @@ export interface PaymentOverviewInvoice {
   printType?: 'Original' | 'Copy';
   taxInvoiceNumber?: string;
   taxInvoiceDate?: string;
+  createdBy?: string;
 }
 
 export interface TaxInvoiceType {

@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useMemo, FC, useEffect, useRef } from 'react';
 import type { InvoiceItem, PaymentOverviewInvoice, ConsumerType, SalesOrderType, ProductType, InvoicePreviewData } from '../types';
 import { PlusIcon, TrashIcon, ChevronLeftIcon } from './icons';
@@ -671,6 +665,7 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
                 invoice={invoice}
                 onStatusChange={(newStatus) => setInvoice(prev => ({...prev, status: newStatus}))}
                 onPrintTypeChange={(newPrintType) => setInvoice(prev => ({ ...prev, printType: newPrintType }))}
+                onCreatedByChange={(newName) => setInvoice(prev => ({ ...prev, createdBy: newName }))}
                 onSave={handleSave}
                 onPreview={handlePreview}
                 onSend={() => console.log('Send')}

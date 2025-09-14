@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import Header from './components/Header.tsx';
@@ -23,6 +25,18 @@ import LoginPage from './components/LoginPage.tsx';
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec';
 
+const findValueByKey = (obj: any, targetKey: string): any => {
+    if (!obj || typeof obj !== 'object') return undefined;
+
+    // Normalize keys by removing all non-alphanumeric characters and converting to lower case.
+    // This is a very robust way to match keys that might have inconsistent spacing, slashes, or other symbols.
+    const normalize = (str: string) => (str || '').toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const normalizedTargetKey = normalize(targetKey);
+
+    const key = Object.keys(obj).find(k => normalize(k) === normalizedTargetKey);
+    return key ? obj[key] : undefined;
+};
+
 const mapSheetDataToInvoice = (sheetRow: any): PaymentOverviewInvoice => ({
     id: sheetRow.id,
     number: String(sheetRow['NUMBER'] || ''),
@@ -37,6 +51,7 @@ const mapSheetDataToInvoice = (sheetRow: any): PaymentOverviewInvoice => ({
     printType: String(sheetRow.printType || 'Original') as 'Original' | 'Copy',
     taxInvoiceNumber: String(sheetRow.taxInvoiceNumber || ''), // Not in sheet
     taxInvoiceDate: parseSheetDate(sheetRow.taxInvoiceDate), // Not in sheet
+    createdBy: String(findValueByKey(sheetRow, 'PEMBUAT INVOICE') || findValueByKey(sheetRow, 'PEMBUAT') || ''),
 });
 
 const mapInvoiceToSheetData = (invoice: PaymentOverviewInvoice) => ({
@@ -47,6 +62,7 @@ const mapInvoiceToSheetData = (invoice: PaymentOverviewInvoice) => ({
     'DATE': invoice.date,
     'AMOUNT': invoice.amount,
     'STATUS': invoice.status,
+    'PEMBUAT INVOICE': invoice.createdBy,
 });
 
 const mapSheetDataToNomorFaktur = (sheetRow: any): PaymentOverviewInvoice => ({
@@ -57,6 +73,7 @@ const mapSheetDataToNomorFaktur = (sheetRow: any): PaymentOverviewInvoice => ({
     date: parseSheetDate(sheetRow['TANGGAL']),
     amount: Number(sheetRow['JUMLAH']) || 0,
     status: 'Draft',
+    createdBy: String(findValueByKey(sheetRow, 'PEMBUAT INVOICE') || findValueByKey(sheetRow, 'PEMBUAT') || ''),
 });
 
 const mapNomorFakturToSheetData = (invoice: PaymentOverviewInvoice) => ({
@@ -66,6 +83,7 @@ const mapNomorFakturToSheetData = (invoice: PaymentOverviewInvoice) => ({
     'SALES ORDER/SO': invoice.soNumber,
     'TANGGAL': invoice.date,
     'JUMLAH': invoice.amount,
+    'PEMBUAT INVOICE': invoice.createdBy,
 });
 
 const parseSheetDate = (sheetDate: any): string => {
@@ -102,18 +120,6 @@ const parseSheetDate = (sheetDate: any): string => {
     const finalYear = utcDate.getUTCFullYear();
 
     return `${finalDay}-${finalMonth}-${finalYear}`;
-};
-
-const findValueByKey = (obj: any, targetKey: string): any => {
-    if (!obj || typeof obj !== 'object') return undefined;
-
-    // Normalize keys by removing all non-alphanumeric characters and converting to lower case.
-    // This is a very robust way to match keys that might have inconsistent spacing, slashes, or other symbols.
-    const normalize = (str: string) => (str || '').toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    const normalizedTargetKey = normalize(targetKey);
-
-    const key = Object.keys(obj).find(k => normalize(k) === normalizedTargetKey);
-    return key ? obj[key] : undefined;
 };
 
 const mapSheetDataToTaxInvoice = (sheetRow: any): TaxInvoiceType => {
@@ -564,6 +570,7 @@ const App: React.FC = () => {
                 status: 'Draft',
                 ...invoiceData,
                 billToAddress: consumers.find(c => c.name === invoiceData.client)?.alamat || '',
+                createdBy: 'System (Nomor Faktur)',
             };
             
             setNomorFakturInvoices(prev => [newInvoice, ...prev]);
@@ -621,6 +628,7 @@ const App: React.FC = () => {
               amount: saleInfo.amount,
               status: 'Draft',
               billToAddress: consumers.find(c => c.name === saleInfo.customer)?.alamat || '',
+              createdBy: 'Bulk Import',
           };
           processedInvoices.push(newInvoice);
           currentInvoiceSequence++;
@@ -695,6 +703,7 @@ const App: React.FC = () => {
             status: statusMap[doc.status],
             taxInvoiceNumber: doc.taxInvoiceNumber,
             taxInvoiceDate: toStorageDate(doc.taxInvoiceDate),
+            createdBy: 'System (Document Save)',
         };
 
       const isNew = !existingInvoice;
