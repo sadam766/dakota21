@@ -50,14 +50,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      alert('Email dan password harus diisi.');
-      return;
+    setError(''); // Clear previous errors
+
+    if (email.trim() === 'fa@gmail.com' && password.trim() === 'fa123') {
+      onLogin();
+    } else {
+      setError('Email atau password salah.');
     }
-    onLogin();
   };
 
   return (
@@ -77,6 +80,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
             <h1 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 mb-2">Welcome to Dakota! 👋🏻</h1>
             <p className="text-gray-500 dark:text-gray-400 mb-6">Please sign-in to your account and start the adventure</p>
+
+            {error && (
+              <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded relative mb-4" role="alert">
+                <span className="block sm:inline">{error}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit}>
                 <div className="mb-4">

@@ -32,6 +32,15 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
       </div>
     );
   }
+  
+  const ITEMS_PER_PAGE = 10;
+  const itemPages = [];
+  for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
+    itemPages.push(items.slice(i, i + ITEMS_PER_PAGE));
+  }
+
+
+  const invoiceTitle = invoiceData.number?.startsWith('KW/') ? 'PROFORMA INVOICE' : 'INVOICE/OFFICIAL RECEIPT';
 
   // Helper function to format currency to Indonesian locale
   const formatCurrency = (value: number) => {
@@ -80,7 +89,7 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
     const formatNumber = (value: number) => Number(value.toFixed(2));
 
     const sheetData = [
-      ["INVOICE/OFFICIAL RECEIPT"],
+      [invoiceTitle],
       [invoiceData.number || ''],
       [], // Empty row
       ["Bill To:", invoiceData.client],
@@ -128,6 +137,12 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
   return (
     <div className="bg-gray-100 dark:bg-slate-900 min-h-screen p-4">
       <style>{`
+      .invoice-page {
+        page-break-after: always;
+      }
+      .invoice-page:last-child {
+        page-break-after: auto;
+      }
       @media print {
         body * {
           visibility: hidden;
@@ -144,9 +159,11 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
           top: 0;
           width: 100%;
           margin: 0;
-          padding: 20px;
           box-shadow: none;
           border: none;
+        }
+        .invoice-page {
+          padding: 0 !important;
         }
       }
       `}</style>
@@ -175,206 +192,131 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
         </div>
       </div>
 
-      <div id="invoice-paper" className="w-full max-w-6xl mx-auto bg-white p-8 text-[11px] leading-[1.3] shadow-lg relative">
-        {/* Empty space for letterhead. Adjusted to fit on a single PDF page */}
-        <div className="h-[70px] w-full"></div>
-        
-        <div className="text-center mb-4">
-          <p className="font-bold uppercase text-[15px] mb-1 tracking-tighter">INVOICE/OFFICIAL RECEIPT</p>
-          <p className="font-bold uppercase text-[15px]">{invoiceData.number || 'SAR/25000043'}</p>
-        </div>
+      <div id="invoice-paper" className="w-full max-w-6xl mx-auto bg-white shadow-lg">
+        {itemPages.map((pageItems, pageIndex) => {
+          const isLastPage = pageIndex === itemPages.length - 1;
+          const pageNumber = pageIndex + 1;
+          const totalPages = itemPages.length;
 
-        <div className="flex justify-between items-start mb-4">
-          <div className="w-1/2 text-left pr-4">
-            <p className="font-bold text-[12px] mb-1">{invoiceData.client}</p>
-            {invoiceData.billToAddress && <p className="font-bold text-[10px] whitespace-pre-wrap">{invoiceData.billToAddress}</p>}
-          </div>
-          <div className="w-1/2 text-right pt-2">
-            <p className="font-bold text-[13px]">{invoiceData.printType}</p>
-          </div>
-        </div>
+          return (
+            <div key={pageIndex} className="invoice-page p-8 text-[11px] leading-[1.3] relative" style={{ display: 'flex', flexDirection: 'column', minHeight: '25.4cm' }}>
+              {/* Header Section */}
+              <header>
+                <div className="h-[70px] w-full"></div>
+                <div className="text-center mb-4">
+                  <p className="font-bold uppercase text-[15px] mb-1 tracking-tighter">{invoiceTitle}</p>
+                  <p className="font-bold uppercase text-[15px]">{invoiceData.number || 'SAR/25000043'}</p>
+                </div>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-1/2 text-left pr-4">
+                    <p className="font-bold text-[12px] mb-1">{invoiceData.client}</p>
+                    {invoiceData.billToAddress && <p className="font-bold text-[10px] whitespace-pre-wrap">{invoiceData.billToAddress}</p>}
+                  </div>
+                  <div className="w-1/2 text-right pt-2">
+                    <p className="font-bold text-[13px]">{invoiceData.printType}</p>
+                  </div>
+                </div>
+                <div className="flex justify-between items-start text-[10px] mb-2">
+                  <div className="w-1/2 text-left pr-4"></div>
+                  <div className="w-1/2 text-right pl-4">
+                    <div className="flex justify-between py-[0px]"><div className="w-[120px] text-right">Sales Order :</div><div className="flex-1 text-left">{invoiceData.soNumber || ''}</div></div>
+                    <div className="flex justify-between py-[0px]"><div className="w-[120px] text-right">Order Date :</div><div className="flex-1 text-left">-</div></div>
+                    <div className="flex justify-between py-[0px]"><div className="w-[120px] text-right">Reference A :</div><div className="flex-1 text-left">-</div></div>
+                  </div>
+                </div>
+                <div className="flex justify-between items-end text-[10px] mb-4">
+                  <div className="w-1/2 text-left"><div className="flex"><div className="w-[120px]">Customer Code :</div><div className="flex-1 text-left">-</div></div></div>
+                  <div className="w-1/2 text-right"><p>Date: {formatDate(invoiceData.date)}</p></div>
+                </div>
+              </header>
 
-        <div className="flex justify-between items-start text-[10px] mb-2">
-          <div className="w-1/2 text-left pr-4">
-            {/* Customer Code removed from here */}
-          </div>
-          <div className="w-1/2 text-right pl-4">
-            <div className="flex justify-between py-[0px]">
-              <div className="w-[120px] text-right">Sales Order :</div>
-              <div className="flex-1 text-left">{invoiceData.soNumber || ''}</div>
-            </div>
-            <div className="flex justify-between py-[0px]">
-              <div className="w-[120px] text-right">Order Date :</div>
-              <div className="flex-1 text-left">-</div>
-            </div>
-            <div className="flex justify-between py-[0px]">
-              <div className="w-[120px] text-right">Reference A :</div>
-              <div className="flex-1 text-left">-</div>
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-between items-end text-[10px] mb-4">
-          <div className="w-1/2 text-left">
-            <div className="flex">
-              <div className="w-[120px]">Customer Code :</div>
-              <div className="flex-1 text-left">-</div>
-            </div>
-          </div>
-          <div className="w-1/2 text-right">
-            <p>Date: {formatDate(invoiceData.date)}</p>
-          </div>
-        </div>
+              {/* Items Table */}
+              <main>
+                <table className="w-full border-collapse mb-0 text-[10px]">
+                  <thead>
+                    <tr>
+                      <th className="text-left pb-1 w-[4%] border border-black">No.</th>
+                      <th className="text-left pb-1 w-[40%] border-t border-b border-r border-black">Item</th>
+                      <th className="text-center pb-1 w-[18%] border-t border-b border-r border-black">Quantity Unit</th>
+                      <th className="text-right pb-1 w-[19%] border-t border-b border-r border-black">Price</th>
+                      <th className="text-right pb-1 w-[19%] border-t border-b border-r border-black">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageItems.map((item, index) => (
+                      <tr key={item.id}>
+                        <td className="py-2">{index + 1 + (pageIndex * ITEMS_PER_PAGE)}</td>
+                        <td className="py-2">{item.item}</td>
+                        <td className="py-2 text-center">{item.quantity.toLocaleString('id-ID')} {item.unit}</td>
+                        <td className="py-2 text-right">{formatCurrency(item.price)}</td>
+                        <td className="py-2 text-right">{formatCurrency(item.quantity * item.price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </main>
+              
+              <div style={{ flexGrow: 1 }}></div>
 
-        <table className="w-full border-collapse mb-0 text-[10px]">
-          <thead>
-            <tr>
-              <th className="text-left pb-1 w-[4%] border border-black">No.</th>
-              <th className="text-left pb-1 w-[40%] border-t border-b border-r border-black">Item</th>
-              <th className="text-center pb-1 w-[18%] border-t border-b border-r border-black">Quantity Unit</th>
-              <th className="text-right pb-1 w-[19%] border-t border-b border-r border-black">Price</th>
-              <th className="text-right pb-1 w-[19%] border-t border-b border-r border-black">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, index) => (
-              <tr key={item.id}>
-                <td className="py-2">{index + 1}</td>
-                <td className="py-2">{item.item}</td>
-                <td className="py-2 text-center">{item.quantity.toLocaleString('id-ID')} {item.unit}</td>
-                <td className="py-2 text-right">{formatCurrency(item.price)}</td>
-                <td className="py-2 text-right">{formatCurrency(item.quantity * item.price)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Perubahan: Jarak di sini diubah menjadi 250px */}
-        <div className="w-full flex justify-end mt-[250px] mb-0">
-            <div className="flex flex-col items-end">
-                <div className="border-t border-black w-full mb-1"></div>
-                <p className="font-bold text-[10px]">{formatCurrency(subtotalBeforeDeductions)}</p>
-            </div>
-        </div>
-        <div className="w-full flex justify-end mt-0 mb-4">
-            <div className="w-1/2 pl-4">
-                <div className="w-full text-[10px]">
-                    {negotiationValue !== 0 && (
-                        <div className="flex">
-                            <div className="w-[300px] text-right">A/Negotiation :</div>
-                            <div className="flex-1 text-right pr-1">
-                                <span>({formatCurrency(Math.abs(negotiationValue))})</span>
+              {/* Footer Section */}
+              <footer>
+                {isLastPage ? (
+                  <>
+                    <div className="w-full flex justify-end mt-4 mb-0">
+                      <div className="flex flex-col items-end">
+                          <div className="border-t border-black w-full mb-1"></div>
+                          <p className="font-bold text-[10px]">{formatCurrency(subtotalBeforeDeductions)}</p>
+                      </div>
+                    </div>
+                    <div className="w-full flex justify-end mt-0 mb-4">
+                        <div className="w-1/2 pl-4">
+                            <div className="w-full text-[10px]">
+                                {negotiationValue !== 0 && (<div className="flex"><div className="w-[300px] text-right">A/Negotiation :</div><div className="flex-1 text-right pr-1"><span>({formatCurrency(Math.abs(negotiationValue))})</span></div></div>)}
+                                {dpValue !== 0 && (<div className="flex"><div className="w-[300px] text-right">DP {dpPercentage ? `${dpPercentage} %` : ''} :</div><div className="flex-1 text-right pr-1"><span>{formatCurrency(dpValue)}</span></div></div>)}
+                                {pelunasanValue !== 0 && (<div className="flex"><div className="w-[300px] text-right">Pelunasan {pelunasanPercentage ? `(${pelunasanPercentage}%)` : ''} :</div><div className="flex-1 text-right pr-1"><span>({formatCurrency(pelunasanValue)})</span></div></div>)}
                             </div>
                         </div>
-                    )}
-                    {dpValue !== 0 && (
-                        <div className="flex">
-                            <div className="w-[300px] text-right">DP {dpPercentage ? `${dpPercentage} %` : ''} :</div>
-                            <div className="flex-1 text-right pr-1">
-                                <span>{formatCurrency(dpValue)}</span>
-                            </div>
+                    </div>
+                    <div className="text-left mt-[-24px] mb-6"><p className="text-[10px]">No PO : {invoiceData.poNumber || ''}</p></div>
+                    <div className="border-b border-black w-full mt-0 mb-4"></div>
+                    <div className="flex justify-end w-full text-[10px]">
+                      <div className="w-1/2 pl-4">
+                        <div className="w-full">
+                          <div className="flex mb-1"><div className="w-[200px] text-right">Goods :</div><div className="flex-1 text-right pr-1"><span>{formatCurrency(goods)}</span></div></div>
+                          <div className="flex mb-1"><div className="w-[200px] text-right">DPP VAT (11/12) :</div><div className="flex-1 text-right pr-1"><span>{formatCurrency(dppVat)}</span></div></div>
+                          <div className="flex mb-1"><div className="w-[200px] text-right">VAT 12 % :</div><div className="flex-1 text-right pr-1"><span>{formatCurrency(vat12)}</span></div></div>
+                          <div className="flex"><div className="w-[200px] text-right font-normal">Total Rp :</div><div className="flex-1 text-right pr-1 font-normal"><span>{formatCurrency(totalRp)}</span></div></div>
                         </div>
-                    )}
-                    {pelunasanValue !== 0 && (
-                        <div className="flex">
-                            <div className="w-[300px] text-right">Pelunasan {pelunasanPercentage ? `(${pelunasanPercentage}%)` : ''} :</div>
-                            <div className="flex-1 text-right pr-1">
-                                <span>({formatCurrency(pelunasanValue)})</span>
-                            </div>
+                      </div>
+                    </div>
+                    <div className="border-b border-black w-full mt-1"></div>
+                    <div className="flex mt-4 text-[10px] whitespace-pre-wrap">
+                      <div className="w-1/2 pr-4 text-[9px]">
+                        <div className="flex mb-1"><div className="w-[100px]">Payment :</div><div className="flex-1">{invoiceData.paymentTerms || '90 Hari setelah invoice diterima'}</div></div>
+                        <div className="flex mb-1"><div className="w-[200x]">Please state with your payment :</div><div className="flex-1">{invoiceData.number || 'SAR/25003755'}</div></div>
+                        <p className="mb-2">For payment, please transfer to our account:</p>
+                        <div className="font-normal">
+                            <p className="mb-1">PT.Jembo Cable Company Tbk</p>
+                            <div className="flex mb-1"><div className="w-[30%]"><p className="mb-0">Bank Mandiri -</p><p className="mb-0">Jakarta Cabang</p><p className="mb-0">Sudirman</p></div><div className="w-[10%] min-w-[120px] text-right whitespace-nowrap"><p className="mb-0">A/C No. : 102-0100206827 (Rp)</p><p className="mb-0">A/C No. : 102-0005000218 (Rp)</p><p className="mb-0">A/C No. : 102-0005000226 (USD)</p></div></div>
+                            <div className="flex justify-center mb-2"><div className="w-[10%] text-center">OR</div></div>
+                            <div className="flex"><div className="w-[30%]"><p className="mb-0">Bank BCA - Jakarta</p><p className="mb-0">Cabang KEM TOWER</p></div><div className="w-[10%] min-w-[120px] text-right whitespace-nowrap"><p className="mb-0">A/C No. : 684-0198977 (Rp)</p></div></div>
                         </div>
-                    )}
-                </div>
-            </div>
-        </div>
-        
-        <div className="text-left mt-[-24] mb-6">
-          <p className="text-[10px]">No PO : {invoiceData.poNumber || ''}</p>
-        </div>
-
-        <div className="border-b border-black w-full mt-0 mb-4"></div>
-
-        <div className="flex justify-end w-full text-[10px]">
-          <div className="w-1/2 pl-4">
-            <div className="w-full">
-              <div className="flex mb-1">
-                <div className="w-[200px] text-right">Goods :</div>
-                <div className="flex-1 text-right pr-1">
-                  <span>{formatCurrency(goods)}</span>
-                </div>
-              </div>
-
-              <div className="flex mb-1">
-                <div className="w-[200px] text-right">DPP VAT (11/12) :</div>
-                <div className="flex-1 text-right pr-1">
-                  <span>{formatCurrency(dppVat)}</span>
-                </div>
-              </div>
-
-              <div className="flex mb-1">
-                <div className="w-[200px] text-right">VAT 12 % :</div>
-                <div className="flex-1 text-right pr-1">
-                  <span>{formatCurrency(vat12)}</span>
-                </div>
-              </div>
-
-              <div className="flex">
-                <div className="w-[200px] text-right font-normal">Total Rp :</div>
-                <div className="flex-1 text-right pr-1 font-normal">
-                  <span>{formatCurrency(totalRp)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="border-b border-black w-full mt-1"></div>
-
-        <div className="flex mt-4 text-[10px] whitespace-pre-wrap">
-          <div className="w-1/2 pr-4 text-[9px]">
-            <div className="flex mb-1">
-              <div className="w-[100px]">Payment :</div>
-              <div className="flex-1">{invoiceData.paymentTerms || '90 Hari setelah invoice diterima'}</div>
-            </div>
-            <div className="flex mb-1">
-              <div className="w-[200x]">Please state with your payment :</div>
-              <div className="flex-1">{invoiceData.number || 'SAR/25003755'}</div>
-            </div>
-            <p className="mb-2">For payment, please transfer to our account:</p>
-            <div className="font-normal">
-                <p className="mb-1">PT.Jembo Cable Company Tbk</p>
-                <div className="flex mb-1">
-                  <div className="w-[30%]">
-                    <p className="mb-0">Bank Mandiri -</p>
-                    <p className="mb-0">Jakarta Cabang</p>
-                    <p className="mb-0">Sudirman</p>
+                      </div>
+                      <div className="w-1/2 pl-4 text-center">
+                        <p className="font-normal mb-10">PT. JEMBO CABLE COMPANY Tbk</p>
+                        <div className="mt-[130px]"><p className="font-normal">Finance</p></div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center text-gray-500 text-[10px] py-4 border-t border-dashed mt-4">
+                    Halaman {pageNumber} dari {totalPages} - Bersambung...
                   </div>
-                  <div className="w-[10%] min-w-[120px] text-right whitespace-nowrap">
-                    <p className="mb-0">A/C No. : 102-0100206827 (Rp)</p>
-                    <p className="mb-0">A/C No. : 102-0005000218 (Rp)</p>
-                    <p className="mb-0">A/C No. : 102-0005000226 (USD)</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-center mb-2">
-                  <div className="w-[10%] text-center">OR</div>
-                </div>
-
-                <div className="flex">
-                  <div className="w-[30%]">
-                    <p className="mb-0">Bank BCA - Jakarta</p>
-                    <p className="mb-0">Cabang KEM TOWER</p>
-                  </div>
-                  <div className="w-[10%] min-w-[120px] text-right whitespace-nowrap">
-                    <p className="mb-0">A/C No. : 684-0198977 (Rp)</p>
-                  </div>
-                </div>
+                )}
+              </footer>
             </div>
-          </div>
-          <div className="w-1/2 pl-4 text-center">
-            <p className="font-normal mb-10">PT. JEMBO CABLE COMPANY Tbk</p>
-            <div className="mt-[130px]">
-              <p className="font-normal">Finance</p>
-            </div>
-          </div>
-        </div>
+          )
+        })}
       </div>
     </div>
   );

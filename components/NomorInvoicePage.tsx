@@ -30,23 +30,43 @@ const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, cons
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const nextInvoiceNumber = useMemo(() => {
-    const prefix = `SAR/`;
-
+  const nextInvoiceNumbers = useMemo(() => {
+    // SAR calculation
+    const sarPrefix = `SAR/`;
     const sarInvoices = invoices
-        .filter(inv => inv.number.startsWith(prefix))
-        .map(inv => parseInt(inv.number.replace(prefix, ''), 10))
+        .filter(inv => inv.number.startsWith(sarPrefix))
+        .map(inv => parseInt(inv.number.replace(sarPrefix, ''), 10))
         .filter(num => !isNaN(num));
+    const maxSarNumber = sarInvoices.length > 0 ? Math.max(...sarInvoices) : 0;
+    const nextSarSequence = maxSarNumber + 1;
 
-    const maxNumber = sarInvoices.length > 0 ? Math.max(...sarInvoices) : 0;
-    const nextSequence = maxNumber + 1;
+    // KW calculation
+    const currentYear = new Date().getFullYear();
+    const kwRegex = new RegExp(`^KW/(\\d{4})/KEU/${currentYear}$`);
+    const kwInvoices = invoices
+        .map(inv => {
+            const match = inv.number.match(kwRegex);
+            return match ? parseInt(match[1], 10) : NaN;
+        })
+        .filter(num => !isNaN(num));
+    const maxKwNumber = kwInvoices.length > 0 ? Math.max(...kwInvoices) : 0;
+    const nextKwSequence = maxKwNumber + 1;
     
     return {
-        prefix: prefix,
-        sequence: nextSequence,
-        fullNumber: `${prefix}${String(nextSequence).padStart(8, '0')}`
+        sar: {
+            prefix: sarPrefix,
+            sequence: nextSarSequence,
+            fullNumber: `${sarPrefix}${String(nextSarSequence).padStart(8, '0')}`
+        },
+        kw: {
+            prefix: `KW/`,
+            suffix: `/KEU/${currentYear}`,
+            sequence: nextKwSequence,
+            fullNumber: `KW/${String(nextKwSequence).padStart(4, '0')}/KEU/${currentYear}`
+        }
     };
   }, [invoices]);
+
 
   // Reset page to 1 when search term or filter changes
   useEffect(() => {
@@ -281,7 +301,7 @@ const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, cons
         onSave={handleSaveInvoice}
         consumers={consumers}
         invoiceToEdit={editingInvoice}
-        nextInvoiceNumberInfo={nextInvoiceNumber}
+        nextInvoiceNumbersInfo={nextInvoiceNumbers}
         sales={sales}
         salesOrders={salesOrders}
       />

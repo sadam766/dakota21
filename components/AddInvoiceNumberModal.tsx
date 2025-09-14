@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { PaymentOverviewInvoice, ConsumerType, SalesType, SalesOrderType } from '../types';
 import { XIcon } from './icons';
@@ -10,7 +8,10 @@ interface AddInvoiceNumberModalProps {
   onSave: (invoiceData: Omit<PaymentOverviewInvoice, 'id' | 'status' | 'email'>) => void;
   consumers: ConsumerType[];
   invoiceToEdit: PaymentOverviewInvoice | null;
-  nextInvoiceNumberInfo?: { prefix: string; sequence: number; fullNumber: string };
+  nextInvoiceNumbersInfo?: {
+      sar: { prefix: string; sequence: number; fullNumber: string };
+      kw: { prefix: string; suffix: string; sequence: number; fullNumber: string };
+  };
   sales: SalesType[];
   salesOrders: SalesOrderType[];
 }
@@ -29,7 +30,8 @@ const parseFormattedNumber = (value: string): number => {
 };
 
 
-const AddInvoiceNumberModal: React.FC<AddInvoiceNumberModalProps> = ({ isOpen, onClose, onSave, consumers, invoiceToEdit, nextInvoiceNumberInfo, sales, salesOrders }) => {
+const AddInvoiceNumberModal: React.FC<AddInvoiceNumberModalProps> = ({ isOpen, onClose, onSave, consumers, invoiceToEdit, nextInvoiceNumbersInfo, sales, salesOrders }) => {
+  const [invoiceType, setInvoiceType] = useState<'SAR' | 'KW'>('SAR');
   const [number, setNumber] = useState('');
   const [client, setClient] = useState('');
   const [soNumber, setSoNumber] = useState('');
@@ -55,6 +57,7 @@ const AddInvoiceNumberModal: React.FC<AddInvoiceNumberModalProps> = ({ isOpen, o
     setIsSoDropdownOpen(false);
     setUseAutomatic(true);
     setAutoSequence('');
+    setInvoiceType('SAR');
   };
 
   useEffect(() => {
@@ -66,23 +69,47 @@ const AddInvoiceNumberModal: React.FC<AddInvoiceNumberModalProps> = ({ isOpen, o
         setSoNumber(invoiceToEdit.soNumber || '');
         setDate(invoiceToEdit.date);
         setAmount(invoiceToEdit.amount);
+        if (invoiceToEdit.number.startsWith('KW/')) {
+            setInvoiceType('KW');
+        } else {
+            setInvoiceType('SAR');
+        }
       } else {
         resetForm();
-        setUseAutomatic(true);
-        if (nextInvoiceNumberInfo) {
-            setNumber(nextInvoiceNumberInfo.fullNumber);
-            setAutoSequence(String(nextInvoiceNumberInfo.sequence));
+        if (nextInvoiceNumbersInfo) {
+            setInvoiceType('SAR');
+            setNumber(nextInvoiceNumbersInfo.sar.fullNumber);
+            setAutoSequence(String(nextInvoiceNumbersInfo.sar.sequence));
         }
       }
     }
-  }, [isOpen, invoiceToEdit, nextInvoiceNumberInfo]);
+  }, [isOpen, invoiceToEdit, nextInvoiceNumbersInfo]);
 
   useEffect(() => {
-    if (useAutomatic && !invoiceToEdit && nextInvoiceNumberInfo) {
-      const newNumber = `${nextInvoiceNumberInfo.prefix}${String(autoSequence).padStart(8, '0')}`;
-      setNumber(newNumber);
+    if (isOpen && !invoiceToEdit && useAutomatic && nextInvoiceNumbersInfo) {
+        if (invoiceType === 'SAR') {
+            const newSequence = String(nextInvoiceNumbersInfo.sar.sequence);
+            setAutoSequence(newSequence);
+            setNumber(`${nextInvoiceNumbersInfo.sar.prefix}${newSequence.padStart(8, '0')}`);
+        } else { // KW
+            const newSequence = String(nextInvoiceNumbersInfo.kw.sequence);
+            setAutoSequence(newSequence);
+            setNumber(`${nextInvoiceNumbersInfo.kw.prefix}${newSequence.padStart(4, '0')}${nextInvoiceNumbersInfo.kw.suffix}`);
+        }
     }
-  }, [useAutomatic, autoSequence, nextInvoiceNumberInfo, invoiceToEdit]);
+  }, [invoiceType, isOpen, invoiceToEdit, useAutomatic, nextInvoiceNumbersInfo]);
+
+  useEffect(() => {
+    if (useAutomatic && !invoiceToEdit && nextInvoiceNumbersInfo) {
+        let newNumber = '';
+        if (invoiceType === 'SAR') {
+            newNumber = `${nextInvoiceNumbersInfo.sar.prefix}${String(autoSequence).padStart(8, '0')}`;
+        } else { // KW
+            newNumber = `${nextInvoiceNumbersInfo.kw.prefix}${String(autoSequence).padStart(4, '0')}${nextInvoiceNumbersInfo.kw.suffix}`;
+        }
+        setNumber(newNumber);
+    }
+}, [autoSequence, invoiceType, useAutomatic, invoiceToEdit, nextInvoiceNumbersInfo]);
 
 
   useEffect(() => {
@@ -179,6 +206,37 @@ const AddInvoiceNumberModal: React.FC<AddInvoiceNumberModalProps> = ({ isOpen, o
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {!invoiceToEdit && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipe Faktur</label>
+                    <div className="flex rounded-md border border-gray-300 dark:border-slate-600">
+                        <button
+                            type="button"
+                            onClick={() => setInvoiceType('SAR')}
+                            disabled={!!invoiceToEdit}
+                            className={`px-4 py-2 block w-full text-sm leading-5 font-medium rounded-l-md focus:z-10 focus:outline-none transition ${
+                                invoiceType === 'SAR' 
+                                ? 'bg-indigo-600 text-white border-indigo-600' 
+                                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 dark:bg-slate-700 dark:text-gray-300 dark:border-slate-600 dark:hover:bg-slate-600'
+                            }`}
+                        >
+                            SAR
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setInvoiceType('KW')}
+                            disabled={!!invoiceToEdit}
+                            className={`-ml-px px-4 py-2 block w-full text-sm leading-5 font-medium rounded-r-md focus:z-10 focus:outline-none transition ${
+                                invoiceType === 'KW' 
+                                ? 'bg-indigo-600 text-white border-indigo-600' 
+                                : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 dark:bg-slate-700 dark:text-gray-300 dark:border-slate-600 dark:hover:bg-slate-600'
+                            }`}
+                        >
+                            KW / Proforma
+                        </button>
+                    </div>
+                </div>
+            )}
           <div>
             <label htmlFor="inv-number" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nomor Faktur</label>
             {!invoiceToEdit && (
@@ -191,19 +249,36 @@ const AddInvoiceNumberModal: React.FC<AddInvoiceNumberModalProps> = ({ isOpen, o
                         className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
                      <label htmlFor="auto-number-check" className="text-sm text-gray-600 dark:text-gray-400">Nomor Otomatis</label>
-                     <input 
-                       type="text"
-                       value={nextInvoiceNumberInfo?.prefix || ''}
-                       readOnly
-                       className="w-20 px-2 py-1 bg-gray-100 dark:bg-slate-600 border border-gray-200 dark:border-slate-500 rounded-md text-sm text-gray-500 dark:text-gray-400"
-                     />
-                     <input 
-                       type="number"
-                       value={autoSequence}
-                       onChange={e => setAutoSequence(e.target.value)}
-                       disabled={!useAutomatic}
-                       className="flex-1 px-2 py-1 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-slate-600"
-                     />
+                     {invoiceType === 'SAR' && nextInvoiceNumbersInfo?.sar && (
+                        <>
+                            <input 
+                                type="text"
+                                value={nextInvoiceNumbersInfo.sar.prefix}
+                                readOnly
+                                className="w-20 px-2 py-1 bg-gray-100 dark:bg-slate-600 border border-gray-200 dark:border-slate-500 rounded-md text-sm text-gray-500 dark:text-gray-400"
+                            />
+                            <input 
+                                type="number"
+                                value={autoSequence}
+                                onChange={e => setAutoSequence(e.target.value)}
+                                disabled={!useAutomatic}
+                                className="flex-1 px-2 py-1 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-slate-600"
+                            />
+                        </>
+                    )}
+                    {invoiceType === 'KW' && nextInvoiceNumbersInfo?.kw && (
+                         <>
+                            <input type="text" value={nextInvoiceNumbersInfo.kw.prefix} readOnly className="w-16 px-2 py-1 bg-gray-100 dark:bg-slate-600 border border-gray-200 dark:border-slate-500 rounded-l-md text-sm text-gray-500 dark:text-gray-400"/>
+                            <input 
+                                type="number" 
+                                value={autoSequence}
+                                onChange={e => setAutoSequence(e.target.value)}
+                                disabled={!useAutomatic}
+                                className="flex-1 w-20 px-2 py-1 bg-white dark:bg-slate-700 border-t border-b border-gray-300 dark:border-slate-600 text-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-slate-600"
+                            />
+                            <input type="text" value={nextInvoiceNumbersInfo.kw.suffix} readOnly className="-ml-px w-28 px-2 py-1 bg-gray-100 dark:bg-slate-600 border border-gray-200 dark:border-slate-500 rounded-r-md text-sm text-gray-500 dark:text-gray-400"/>
+                         </>
+                    )}
                  </div>
             )}
             <input
@@ -213,7 +288,7 @@ const AddInvoiceNumberModal: React.FC<AddInvoiceNumberModalProps> = ({ isOpen, o
               onChange={(e) => setNumber(e.target.value)}
               disabled={useAutomatic && !invoiceToEdit}
               className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-gray-800 dark:text-gray-200 disabled:bg-gray-100 dark:disabled:bg-slate-600"
-              placeholder="e.g., SAR/25000001"
+              placeholder={invoiceType === 'SAR' ? "e.g., SAR/25000001" : "e.g., KW/ABCD/KEU/2024"}
               required
             />
           </div>
