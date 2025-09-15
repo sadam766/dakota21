@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import Header from './components/Header.tsx';
@@ -63,6 +60,7 @@ const mapInvoiceToSheetData = (invoice: PaymentOverviewInvoice) => ({
     'AMOUNT': invoice.amount,
     'STATUS': invoice.status,
     'PEMBUAT INVOICE': invoice.createdBy,
+    soNumber: invoice.soNumber,
 });
 
 const mapSheetDataToNomorFaktur = (sheetRow: any): PaymentOverviewInvoice => ({
@@ -501,21 +499,63 @@ const App: React.FC = () => {
       };
 
       const isNew = finalInvoiceData.id.startsWith('new-');
-      const invoiceWithId = isNew ? { ...finalInvoiceData, id: `inv-${Date.now()}` } : finalInvoiceData;
+      let invoiceWithId = isNew ? { ...finalInvoiceData, id: `inv-${Date.now()}` } : finalInvoiceData;
+      
+      let soNumberToUse = invoiceWithId.soNumber;
+      if (!soNumberToUse && items.length > 0 && items[0]?.item) {
+          soNumberToUse = invoiceWithId.number;
+          invoiceWithId = { ...invoiceWithId, soNumber: soNumberToUse }; 
+      }
       
       const originalInvoices = [...invoices];
+      const originalSalesOrders = [...salesOrders];
 
+      // Optimistic UI update for the invoice
       if (isNew) {
           setInvoices(prev => [invoiceWithId, ...prev]);
       } else {
           setInvoices(prev => prev.map(inv => inv.id === invoiceWithId.id ? invoiceWithId : inv));
       }
+
+      // Optimistic UI update for sales orders if an SO number is present
+      let newSOItemsForState: SalesOrderType[] = [];
+      if (soNumberToUse) {
+        const otherSOItems = originalSalesOrders.filter(so => so.soNumber !== soNumberToUse);
+        newSOItemsForState = items.map(item => {
+            const existingProduct = products.find(p => p.name === item.item);
+            return {
+                id: `so-${Date.now()}-${Math.random()}`,
+                soNumber: soNumberToUse,
+                name: item.item,
+                category: existingProduct?.category || 'Unknown',
+                quantity: item.quantity,
+                satuan: item.unit,
+                price: item.price
+            };
+        });
+        setSalesOrders([...otherSOItems, ...newSOItemsForState]);
+      }
       
       try {
+          // Save the main invoice data
           await postData({ action: isNew ? 'create' : 'update', sheetName: 'Invoices', id: invoiceWithId.id, data: mapInvoiceToSheetData(invoiceWithId) });
+
+          // If there's an associated Sales Order, sync its items in the backend
+          if (soNumberToUse) {
+            const oldSOItemsInSheet = originalSalesOrders.filter(so => so.soNumber === soNumberToUse);
+            const oldIdsToDelete = oldSOItemsInSheet.map(so => so.id);
+
+            const deletePromises = oldIdsToDelete.map(id => postData({ action: 'delete', sheetName: 'SalesOrders', id }));
+            await Promise.all(deletePromises);
+            
+            const createPromises = newSOItemsForState.map(soItem => postData({ action: 'create', sheetName: 'SalesOrders', data: mapSalesOrderToSheetData(soItem) }));
+            await Promise.all(createPromises);
+          }
+
       } catch (err) {
-          alert('Failed to save invoice. Reverting changes.');
+          alert('Failed to save invoice and/or item details. Reverting changes.');
           setInvoices(originalInvoices);
+          setSalesOrders(originalSalesOrders);
       }
   };
 

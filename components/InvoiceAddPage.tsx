@@ -3,12 +3,6 @@ import type { InvoiceItem, PaymentOverviewInvoice, ConsumerType, SalesOrderType,
 import { PlusIcon, TrashIcon, ChevronLeftIcon } from './icons';
 import InvoiceActionPanel from './InvoiceActionSidebar';
 
-const initialItems: InvoiceItem[] = [
-    { id: 1, item: 'Kabel Tembaga 2.5mm', quantity: 100, unit: 'meter', price: 15000 },
-    { id: 2, item: 'Kabel Fiber Optik', quantity: 50, unit: 'meter', price: 35000 },
-    { id: 3, item: 'Konektor RJ45', quantity: 200, unit: 'pcs', price: 2000 },
-];
-
 const newInvoiceTemplate: PaymentOverviewInvoice = {
     id: `new-${Date.now()}`,
     number: 'SAR/25000043',
@@ -102,6 +96,7 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
     const [pelunasanValue, setPelunasanValue] = useState(0);
 
     useEffect(() => {
+        const fallbackItem = [{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }];
         if (previewData) {
             // State is being restored from the preview page
             setInvoice(previewData.invoice);
@@ -122,13 +117,13 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
             setSoSearchTerm(invoiceToEdit.soNumber || '');
             const soItems = salesOrders.filter(so => so.soNumber === invoiceToEdit.soNumber);
             const newItems = soItems.map((item, i) => ({
-                id: i + 1,
+                id: Date.now() + i,
                 item: item.name,
                 quantity: item.quantity,
                 unit: item.satuan,
                 price: item.price
             }));
-            setItems(newItems.length ? newItems : initialItems);
+            setItems(newItems.length ? newItems : fallbackItem);
             // Reset financial calculation values for a clean slate
             setNegotiationValue(0);
             setDpPercentage(0);
@@ -138,7 +133,7 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
         } else {
             // Standard create new flow
             setInvoice(newInvoiceTemplate);
-            setItems([{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
+            setItems(fallbackItem);
             setCustomerSearchTerm('');
             setSoSearchTerm('');
              // Reset financial calculation values for a clean slate
