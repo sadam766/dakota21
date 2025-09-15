@@ -47,10 +47,14 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
     return value.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  // Helper function to format date to Indonesian locale
+  // Helper function to format date from YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric'});
+    if (!dateString || !dateString.includes('-')) return dateString;
+    const [year, month, day] = dateString.split('-');
+    if (day && month && year) {
+        return `${day}-${month}-${year}`;
+    }
+    return dateString; // Fallback
   };
 
   // Corrected calculation logic, consistent with InvoiceAddPage
@@ -199,7 +203,7 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
           const totalPages = itemPages.length;
 
           return (
-            <div key={pageIndex} className="invoice-page p-8 text-[11px] leading-[1.3] relative" style={{ display: 'flex', flexDirection: 'column', minHeight: '25.4cm' }}>
+            <div key={pageIndex} className="invoice-page p-8 text-[11px] leading-tight relative" style={{ display: 'flex', flexDirection: 'column', minHeight: '25.4cm' }}>
               {/* Header Section */}
               <header>
                 <div className="h-[70px] w-full"></div>
@@ -220,12 +224,12 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
                   <div className="w-1/2 text-left pr-4"></div>
                   <div className="w-1/2 text-right pl-4">
                     <div className="flex justify-between py-[0px]"><div className="w-[120px] text-right">Sales Order :</div><div className="flex-1 text-left">{invoiceData.soNumber || ''}</div></div>
-                    <div className="flex justify-between py-[0px]"><div className="w-[120px] text-right">Order Date :</div><div className="flex-1 text-left">-</div></div>
-                    <div className="flex justify-between py-[0px]"><div className="w-[120px] text-right">Reference A :</div><div className="flex-1 text-left">-</div></div>
+                    <div className="flex justify-between py-[0px]"><div className="w-[120px] text-right">Order Date :</div><div className="flex-1 text-left"></div></div>
+                    <div className="flex justify-between py-[0px]"><div className="w-[120px] text-right">Reference A :</div><div className="flex-1 text-left"></div></div>
                   </div>
                 </div>
                 <div className="flex justify-between items-end text-[10px] mb-4">
-                  <div className="w-1/2 text-left"><div className="flex"><div className="w-[120px]">Customer Code :</div><div className="flex-1 text-left">-</div></div></div>
+                  <div className="w-1/2 text-left"><div className="flex"><div className="w-[120px]">Customer Code :</div><div className="flex-1 text-left"></div></div></div>
                   <div className="w-1/2 text-right"><p>Date: {formatDate(invoiceData.date)}</p></div>
                 </div>
               </header>
@@ -245,11 +249,11 @@ const InvoicePreviewPage: React.FC<ExtendedInvoicePreviewProps> = ({ invoiceData
                   <tbody>
                     {pageItems.map((item, index) => (
                       <tr key={item.id}>
-                        <td className="py-2">{index + 1 + (pageIndex * ITEMS_PER_PAGE)}</td>
-                        <td className="py-2">{item.item}</td>
-                        <td className="py-2 text-center">{item.quantity.toLocaleString('id-ID')} {item.unit}</td>
-                        <td className="py-2 text-right">{formatCurrency(item.price)}</td>
-                        <td className="py-2 text-right">{formatCurrency(item.quantity * item.price)}</td>
+                        <td className="py-1">{index + 1 + (pageIndex * ITEMS_PER_PAGE)}</td>
+                        <td className="py-1">{item.item}</td>
+                        <td className="py-1 text-center">{item.quantity.toLocaleString('id-ID')} {item.unit}</td>
+                        <td className="py-1 text-right">{formatCurrency(item.price)}</td>
+                        <td className="py-1 text-right">{formatCurrency(item.quantity * item.price)}</td>
                       </tr>
                     ))}
                   </tbody>
