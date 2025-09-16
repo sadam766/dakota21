@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import Header from './components/Header.tsx';
 import Dashboard from './components/Dashboard.tsx';
@@ -15,21 +16,20 @@ import NomorInvoicePage from './components/NomorInvoicePage.tsx';
 import TaxInvoicePage from './components/TaxInvoicePage.tsx';
 import SalesOrderPage from './components/SalesOrderPage.tsx';
 import AddConsumerPage from './components/AddConsumerPage.tsx';
+import SpdPage from './components/SpdPage.tsx';
+import SpdPreviewPage from './components/SpdPreviewPage.tsx';
 import type { PaymentOverviewInvoice, SalesType, InvoiceItem, ProductType, SalesOrderType, ConsumerType, TaxInvoiceType, DocumentType, InvoicePreviewData } from './types';
 import AddSalePage from './components/AddSalePage.tsx';
 import InvoicePreviewPage from './components/InvoicePreviewPage.tsx';
 import LoginPage from './components/LoginPage.tsx';
+import AddSpdModal from './components/AddSpdModal.tsx';
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec';
 
 const findValueByKey = (obj: any, targetKey: string): any => {
     if (!obj || typeof obj !== 'object') return undefined;
-
-    // Normalize keys by removing all non-alphanumeric characters and converting to lower case.
-    // This is a very robust way to match keys that might have inconsistent spacing, slashes, or other symbols.
     const normalize = (str: string) => (str || '').toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
     const normalizedTargetKey = normalize(targetKey);
-
     const key = Object.keys(obj).find(k => normalize(k) === normalizedTargetKey);
     return key ? obj[key] : undefined;
 };
@@ -38,17 +38,18 @@ const mapSheetDataToInvoice = (sheetRow: any): PaymentOverviewInvoice => ({
     id: sheetRow.id,
     number: String(sheetRow['NUMBER'] || ''),
     client: String(sheetRow['CLIENT'] || ''),
-    soNumber: String(sheetRow.soNumber || ''), // Not in sheet
+    soNumber: String(sheetRow.soNumber || ''),
     date: parseSheetDate(sheetRow['DATE']),
     amount: Number(sheetRow['AMOUNT']) || 0,
     status: String(sheetRow['STATUS'] || 'Draft') as PaymentOverviewInvoice['status'],
     billToAddress: String(sheetRow['ALAMAT'] || ''),
-    poNumber: String(sheetRow.poNumber || ''), // Not in sheet
-    paymentTerms: String(sheetRow.paymentTerms || ''), // Not in sheet
+    poNumber: String(sheetRow.poNumber || ''),
+    paymentTerms: String(sheetRow.paymentTerms || ''),
     printType: String(sheetRow.printType || 'Original') as 'Original' | 'Copy',
-    taxInvoiceNumber: String(sheetRow.taxInvoiceNumber || ''), // Not in sheet
-    taxInvoiceDate: parseSheetDate(sheetRow.taxInvoiceDate), // Not in sheet
+    taxInvoiceNumber: String(sheetRow.taxInvoiceNumber || ''),
+    taxInvoiceDate: parseSheetDate(sheetRow.taxInvoiceDate),
     createdBy: String(findValueByKey(sheetRow, 'PEMBUAT INVOICE') || findValueByKey(sheetRow, 'PEMBUAT') || ''),
+    spdNumber: String(sheetRow['Nomor SPD'] || ''),
 });
 
 const mapInvoiceToSheetData = (invoice: PaymentOverviewInvoice) => ({
@@ -60,6 +61,7 @@ const mapInvoiceToSheetData = (invoice: PaymentOverviewInvoice) => ({
     'AMOUNT': invoice.amount,
     'STATUS': invoice.status,
     'PEMBUAT INVOICE': invoice.createdBy,
+    'Nomor SPD': invoice.spdNumber,
     soNumber: invoice.soNumber,
 });
 
@@ -72,6 +74,7 @@ const mapSheetDataToNomorFaktur = (sheetRow: any): PaymentOverviewInvoice => ({
     amount: Number(sheetRow['JUMLAH']) || 0,
     status: 'Draft',
     createdBy: String(findValueByKey(sheetRow, 'PEMBUAT INVOICE') || findValueByKey(sheetRow, 'PEMBUAT') || ''),
+    spdNumber: String(sheetRow['Nomor SPD'] || ''),
 });
 
 const mapNomorFakturToSheetData = (invoice: PaymentOverviewInvoice) => ({
@@ -82,76 +85,92 @@ const mapNomorFakturToSheetData = (invoice: PaymentOverviewInvoice) => ({
     'TANGGAL': invoice.date,
     'JUMLAH': invoice.amount,
     'PEMBUAT INVOICE': invoice.createdBy,
+    'Nomor SPD': invoice.spdNumber,
+});
+
+const mapSheetDataToSpd = (sheetRow: any): PaymentOverviewInvoice => ({
+    id: sheetRow.id || `spd-${Date.now()}-${Math.random()}`,
+    number: String(sheetRow['SPD'] || sheetRow['NOMOR SPD'] || ''),
+    client: String(sheetRow['customer'] || sheetRow['PELANGGAN'] || ''),
+    date: parseSheetDate(sheetRow['Tanggal']),
+    sales: String(sheetRow['sales'] || ''),
+    invoiceNumber: String(sheetRow['No Invoice'] || ''),
+    invoiceDate: parseSheetDate(sheetRow['Tanggal Invoice']),
+    customerReceiptDate: parseSheetDate(sheetRow['Tanggal Terima Customer']),
+    dueDate: parseSheetDate(sheetRow['Tanggal Jatuh Tempo']),
+    totalPiutang: Number(sheetRow['Total Piutang'] || sheetRow['JUMLAH'] || 0),
+    keterangan: String(sheetRow['Keterangan'] || ''),
+    soNumber: String(sheetRow['SALES ORDER/SO'] || sheetRow['No. SO.'] || ''),
+    amount: Number(sheetRow['JUMLAH'] || sheetRow['Total Piutang'] || 0),
+    status: 'Draft',
+    createdBy: String(findValueByKey(sheetRow, 'PEMBUAT') || ''),
+    noKuitansi: String(sheetRow['NO. KUITANSI'] || ''),
+    noFakturPajak: String(sheetRow['NO. FAKTUR PAJAK'] || ''),
+    suratJalan: String(sheetRow['SURAT JALAN'] || sheetRow['NO. SURAT JALAN'] || ''),
+});
+
+const mapSpdToSheetData = (spd: PaymentOverviewInvoice) => ({
+    id: spd.id,
+    'Tanggal': spd.date,
+    'sales': spd.sales,
+    'customer': spd.client,
+    'SPD': spd.number,
+    'No Invoice': spd.invoiceNumber,
+    'Tanggal Invoice': spd.invoiceDate,
+    'Tanggal Terima Customer': spd.customerReceiptDate,
+    'Tanggal Jatuh Tempo': spd.dueDate,
+    'Total Piutang': spd.totalPiutang,
+    'Keterangan': spd.keterangan,
+    'PEMBUAT': spd.createdBy,
+    'NO. KUITANSI': spd.noKuitansi,
+    'NO. FAKTUR PAJAK': spd.noFakturPajak,
+    'SURAT JALAN': spd.suratJalan,
+    'No. SO.': spd.soNumber,
 });
 
 const parseSheetDate = (sheetDate: any): string => {
     if (sheetDate === null || sheetDate === undefined || sheetDate === '') return '';
-
-    // Case for numeric serial dates from Sheets/Excel
     if (typeof sheetDate === 'number') {
         const jsTimestamp = (sheetDate - 25569) * 86400 * 1000 + (12 * 60 * 60 * 1000);
         const serialDate = new Date(jsTimestamp);
         const day = String(serialDate.getUTCDate()).padStart(2, '0');
         const month = String(serialDate.getUTCMonth() + 1).padStart(2, '0');
         const year = serialDate.getUTCFullYear();
-        return `${day}-${month}-${year}`;
+        return `${year}-${month}-${day}`;
     }
-
-    // Case for JS Date objects, strings, etc.
     const d = new Date(sheetDate);
     if (isNaN(d.getTime())) {
-        return String(sheetDate); // Return original if not a valid date
+        return String(sheetDate);
     }
-    
-    // The problem: `new Date('2025-07-15')` creates a date at local midnight.
-    // In timezones ahead of UTC, the underlying UTC date is for the day before.
-    // To fix this, we extract the year, month, and day from the parsed date (which respects the local time's "wall clock" date)
-    // and then construct a new date object explicitly in UTC. This neutralizes timezone effects.
     const year = d.getFullYear();
-    const month = d.getMonth();
+    const month = d.getMonth() + 1;
     const day = d.getDate();
-    
-    const utcDate = new Date(Date.UTC(year, month, day));
-
-    const finalDay = String(utcDate.getUTCDate()).padStart(2, '0');
-    const finalMonth = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
-    const finalYear = utcDate.getUTCFullYear();
-
-    return `${finalDay}-${finalMonth}-${finalYear}`;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
 const mapSheetDataToTaxInvoice = (sheetRow: any): TaxInvoiceType => {
     const statusFromSheet = (findValueByKey(sheetRow, 'Status Faktur') || '').toUpperCase();
     const status: 'APPROVED' | 'Dibatalkan' = statusFromSheet === 'DIBATALKAN' ? 'Dibatalkan' : 'APPROVED';
-
     const tanggalFakturStr = parseSheetDate(findValueByKey(sheetRow, 'Tanggal Faktur Pajak'));
     const masaPajakStr = String(findValueByKey(sheetRow, 'Masa Pajak') || '').toLowerCase().trim();
-
     const monthMap: { [key: string]: number } = {
         'januari': 1, 'februari': 2, 'maret': 3, 'april': 4, 'mei': 5, 'juni': 6,
         'juli': 7, 'agustus': 8, 'september': 9, 'oktober': 10, 'november': 11, 'desember': 12
     };
-
     let masaPajak: number | undefined = monthMap[masaPajakStr];
-
-    // If masaPajak is not found in the map, try to get it from the date string
     if (masaPajak === undefined && tanggalFakturStr) {
         const dateParts = tanggalFakturStr.split('-');
         if (dateParts.length === 3) {
-            // Assuming DD-MM-YYYY format
             const monthFromDate = parseInt(dateParts[1], 10);
             if (!isNaN(monthFromDate)) {
                 masaPajak = monthFromDate;
             }
         }
     }
-    
-    // If it's still undefined, try converting the original string to a number, then fallback to 0
     if (masaPajak === undefined) {
         const numVal = Number(findValueByKey(sheetRow, 'Masa Pajak'));
         masaPajak = isNaN(numVal) ? 0 : numVal;
     }
-
     return {
         id: sheetRow.id || `tax-${Date.now()}-${Math.random()}`,
         npwpPembeli: findValueByKey(sheetRow, 'NPWP Pembeli/Identitas lainnya') || '',
@@ -191,7 +210,6 @@ const mapSheetDataToProduct = (sheetRow: any): ProductType => {
     if (stock > 0) {
         status = stock < 20 ? 'Low Stock' : 'In Stock';
     }
-
     return {
         id: sheetRow.id,
         name: String(sheetRow.PRODUCT || ''),
@@ -199,7 +217,7 @@ const mapSheetDataToProduct = (sheetRow: any): ProductType => {
         price: Number(sheetRow.PRICE) || 0,
         stock: stock,
         unit: String(sheetRow.SATUAN || 'pcs'),
-        image: '', // Not available in the sheet
+        image: '',
         status: status,
     };
 };
@@ -255,7 +273,7 @@ const mapSheetDataToSale = (sheetRow: any): SalesType => ({
     poNumber: String(sheetRow['NO. PO'] || ''),
     amount: Number(sheetRow['AMOUNT']) || 0,
     status: String(sheetRow['STATUS'] || 'Draft') as SalesType['status'],
-    date: parseSheetDate(sheetRow.date) || new Date().toISOString().split('T')[0], // Sheet does not have date, default to today
+    date: parseSheetDate(sheetRow.date) || new Date().toISOString().split('T')[0],
 });
 
 const mapSaleToSheetData = (sale: SalesType) => ({
@@ -281,7 +299,6 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [language, setLanguage] = useState<'en' | 'id'>('en');
 
-  // Data states
   const [products, setProducts] = useState<ProductType[]>([]);
   const [editingProduct, setEditingProduct] = useState<ProductType | null>(null);
   const [salesOrders, setSalesOrders] = useState<SalesOrderType[]>([]);
@@ -291,15 +308,22 @@ const App: React.FC = () => {
   const [nomorFakturInvoices, setNomorFakturInvoices] = useState<PaymentOverviewInvoice[]>([]);
   const [taxInvoices, setTaxInvoices] = useState<TaxInvoiceType[]>([]);
   const [sales, setSales] = useState<SalesType[]>([]);
+  const [spdDocs, setSpdDocs] = useState<PaymentOverviewInvoice[]>([]);
 
-  // Loading and error states for initial data fetch
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // SPD Modal State
+  const [isSpdModalOpen, setIsSpdModalOpen] = useState(false);
+  const [invoicesForSpd, setInvoicesForSpd] = useState<PaymentOverviewInvoice[]>([]);
+  const [editingSpd, setEditingSpd] = useState<PaymentOverviewInvoice | null>(null);
+  const [previewingSpdDocs, setPreviewingSpdDocs] = useState<PaymentOverviewInvoice[] | null>(null);
 
-  // --- AUTH HANDLERS ---
+  const uniqueSalesPersons = useMemo(() => [...new Set(sales.map(s => s.salesPerson).filter(Boolean))], [sales]);
+
   const handleLogin = () => {
     setIsAuthenticated(true);
-    setActiveView('dashboard'); // Go to dashboard on login
+    setActiveView('dashboard');
   };
 
   const handleLogout = () => {
@@ -307,7 +331,6 @@ const App: React.FC = () => {
   };
 
 
-  // --- DATA FETCHING ---
   useEffect(() => {
     const fetchData = async (sheetName: string) => {
         const res = await fetch(`${SCRIPT_URL}?action=read&sheetName=${sheetName}`);
@@ -319,23 +342,54 @@ const App: React.FC = () => {
 
     const fetchAllData = async () => {
         try {
-            const [productsData, salesOrdersData, consumersData, invoicesData, taxInvoicesData, salesData, nomorFakturData] = await Promise.all([
-                fetchData('Products'),
-                fetchData('SalesOrders'),
-                fetchData('Customers'),
-                fetchData('Invoices'),
-                fetchData('TaxInvoices'),
-                fetchData('Sales'),
-                fetchData('NOMOR FAKTUR'),
+            const productsPromise = fetchData('Products');
+            const salesOrdersPromise = fetchData('SalesOrders');
+            const consumersPromise = fetchData('Customers');
+            const taxInvoicesPromise = fetchData('TaxInvoices');
+            const nomorFakturPromise = fetchData('NOMOR FAKTUR');
+            const spdPromise = fetchData('NOMOR SPD');
+
+            const salesPromise = fetchData('Sales').catch(error => {
+                console.error("Failed to fetch Sales data. The app will continue without it.", error);
+                return []; 
+            });
+            
+            const invoicesPromise = fetchData('Invoices').catch(error => {
+                console.error("Failed to fetch Invoices data. The app will continue without it.", error);
+                return []; 
+            });
+
+            const [
+                productsData, 
+                salesOrdersData, 
+                consumersData, 
+                invoicesData, 
+                taxInvoicesData, 
+                salesData, 
+                nomorFakturData, 
+                spdData
+            ] = await Promise.all([
+                productsPromise,
+                salesOrdersPromise,
+                consumersPromise,
+                invoicesPromise,
+                taxInvoicesPromise,
+                salesPromise,
+                nomorFakturPromise,
+                spdPromise,
             ]);
+
+            const mappedInvoices = invoicesData.map(mapSheetDataToInvoice);
+            const mappedSpds = spdData.map(mapSheetDataToSpd).filter((doc: PaymentOverviewInvoice) => doc.number || doc.client);
 
             setProducts(productsData.map(mapSheetDataToProduct));
             setSalesOrders(salesOrdersData.map(mapSheetDataToSalesOrder));
             setConsumers(consumersData.map(mapSheetDataToConsumer));
-            setInvoices(invoicesData.map(mapSheetDataToInvoice));
+            setInvoices(mappedInvoices);
             setNomorFakturInvoices(nomorFakturData.map(mapSheetDataToNomorFaktur));
             setTaxInvoices(taxInvoicesData.map(mapSheetDataToTaxInvoice));
             setSales(salesData.map(mapSheetDataToSale));
+            setSpdDocs(mappedSpds);
 
         } catch (err: any) {
             setError(err.message);
@@ -348,7 +402,6 @@ const App: React.FC = () => {
     fetchAllData();
   }, []);
 
-  // --- CRUD HELPERS ---
   const postData = async (payload: object) => {
     const response = await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -359,7 +412,6 @@ const App: React.FC = () => {
   };
 
 
-  // --- CRUD HANDLERS ---
   const handleAddProduct = async (productData: Omit<ProductType, 'id' | 'image' | 'status'>) => {
     const newProduct: ProductType = {
         ...productData,
@@ -510,14 +562,12 @@ const App: React.FC = () => {
       const originalInvoices = [...invoices];
       const originalSalesOrders = [...salesOrders];
 
-      // Optimistic UI update for the invoice
       if (isNew) {
           setInvoices(prev => [invoiceWithId, ...prev]);
       } else {
           setInvoices(prev => prev.map(inv => inv.id === invoiceWithId.id ? invoiceWithId : inv));
       }
 
-      // Optimistic UI update for sales orders if an SO number is present
       let newSOItemsForState: SalesOrderType[] = [];
       if (soNumberToUse) {
         const otherSOItems = originalSalesOrders.filter(so => so.soNumber !== soNumberToUse);
@@ -537,10 +587,8 @@ const App: React.FC = () => {
       }
       
       try {
-          // Save the main invoice data
           await postData({ action: isNew ? 'create' : 'update', sheetName: 'Invoices', id: invoiceWithId.id, data: mapInvoiceToSheetData(invoiceWithId) });
 
-          // If there's an associated Sales Order, sync its items in the backend
           if (soNumberToUse) {
             const oldSOItemsInSheet = originalSalesOrders.filter(so => so.soNumber === soNumberToUse);
             const oldIdsToDelete = oldSOItemsInSheet.map(so => so.id);
@@ -709,9 +757,9 @@ const App: React.FC = () => {
 
     const handleSaveDocument = async (doc: DocumentType) => {
     const toStorageDate = (dateStr: string) => {
-        if (!dateStr || !dateStr.includes('/')) return dateStr; // Already in YYYY-MM-DD
+        if (!dateStr || !dateStr.includes('/')) return dateStr;
         const parts = dateStr.split('/');
-        if (parts.length === 3) { // Is DD/MM/YYYY
+        if (parts.length === 3) {
             return `${parts[2]}-${parts[1]}-${parts[0]}`;
         }
         return dateStr;
@@ -736,7 +784,7 @@ const App: React.FC = () => {
         : {
             id: doc.id,
             number: doc.invoiceNumber,
-            client: selectedSale?.customer || '', // Get client from selectedSale for context
+            client: selectedSale?.customer || '',
             soNumber: doc.soNumber,
             date: toStorageDate(doc.invoiceDate),
             amount: doc.invoiceValue,
@@ -778,7 +826,7 @@ const App: React.FC = () => {
             correspondingInvoice = nomorFakturInvoices.find(inv => inv.number === invoiceToDelete!.number);
             mainSheet = 'Invoices';
             correspondingSheet = 'NOMOR FAKTUR';
-        } else { // sheetName === 'NOMOR FAKTUR'
+        } else {
             invoiceToDelete = nomorFakturInvoices.find(inv => inv.id === invoiceId);
             if (!invoiceToDelete) return;
             correspondingInvoice = invoices.find(inv => inv.number === invoiceToDelete!.number);
@@ -786,7 +834,6 @@ const App: React.FC = () => {
             correspondingSheet = 'Invoices';
         }
     
-        // Optimistic UI update
         setInvoices(prev => prev.filter(inv => inv.id !== (mainSheet === 'Invoices' ? invoiceToDelete!.id : correspondingInvoice?.id)));
         setNomorFakturInvoices(prev => prev.filter(inv => inv.id !== (mainSheet === 'NOMOR FAKTUR' ? invoiceToDelete!.id : correspondingInvoice?.id)));
     
@@ -800,7 +847,7 @@ const App: React.FC = () => {
             alert(`Failed to delete invoice from both sheets: ${err.message}. Reverting changes.`);
             setInvoices(originalInvoices);
             setNomorFakturInvoices(originalNomorFakturInvoices);
-            throw err; // To be caught by caller if needed
+            throw err;
         }
     };
 
@@ -833,7 +880,6 @@ const App: React.FC = () => {
     };
 
     const updatePreviewSheet = async (previewData: InvoicePreviewData) => {
-        // Helper to format date from YYYY-MM-DD to DD-MM-YYYY
         const formatDateForSheet = (dateStr: string): string => {
             if (!dateStr || !dateStr.includes('-')) return dateStr;
             const [year, month, day] = dateStr.split('-');
@@ -845,7 +891,6 @@ const App: React.FC = () => {
         
         const addressLines = splitAddressIntoLines(previewData.invoice.billToAddress || '');
 
-        // Calculations
         const subtotal = previewData.items.reduce((sum, item) => sum + (item.quantity || 0) * (item.price || 0), 0);
         const negotiatedSubtotal = subtotal + previewData.negotiationValue;
         const goods = negotiatedSubtotal - previewData.dpValue - previewData.pelunasanValue;
@@ -853,7 +898,6 @@ const App: React.FC = () => {
         const vat12 = Math.round(dppVat * 12 / 100);
         const totalRp = goods + vat12;
 
-        // Construct the main data payload to match the Apps Script structure
         const dataPayload: { [key: string]: any } = {
             invoiceNumber: previewData.invoice.number,
             customerName: previewData.invoice.client,
@@ -864,7 +908,7 @@ const App: React.FC = () => {
             salesOrder: previewData.invoice.soNumber || '',
             orderDate: '-',
             referenceA: '',
-            date: [formatDateForSheet(previewData.invoice.date), null], // For L:M12
+            date: [formatDateForSheet(previewData.invoice.date), null],
             poNumber: previewData.invoice.poNumber || '',
             printType: previewData.invoice.printType || 'Original',
             
@@ -874,7 +918,7 @@ const App: React.FC = () => {
                 quantity: item.quantity,
                 unit: item.unit,
                 price: item.price,
-                amount: [(item.quantity || 0) * (item.price || 0), null] // For L:M16
+                amount: [(item.quantity || 0) * (item.price || 0), null]
             })),
 
             totals: {
@@ -886,10 +930,9 @@ const App: React.FC = () => {
             },
         };
 
-        // Add conditional top-level properties to match code.gs
         if (previewData.negotiationValue && previewData.negotiationValue !== 0) {
             dataPayload.negotiationLabel = "A/Negotiation";
-            dataPayload.negotiationValue = [previewData.negotiationValue, null]; // For L:M35
+            dataPayload.negotiationValue = [previewData.negotiationValue, null];
         }
 
         if (previewData.dpValue && previewData.dpValue !== 0) {
@@ -897,7 +940,7 @@ const App: React.FC = () => {
             dataPayload.dpValueText = previewData.dpPercentage 
                 ? `${previewData.dpPercentage}%` 
                 : previewData.dpValue.toLocaleString('id-ID');
-            dataPayload.dpValue = [previewData.dpValue, null]; // For L:M36
+            dataPayload.dpValue = [previewData.dpValue, null];
         }
         
         if (previewData.pelunasanValue && previewData.pelunasanValue !== 0) {
@@ -905,7 +948,7 @@ const App: React.FC = () => {
             dataPayload.pelunasanValueText = previewData.pelunasanPercentage
                 ? `${previewData.pelunasanPercentage}%`
                 : previewData.pelunasanValue.toLocaleString('id-ID');
-            dataPayload.pelunasanValue = [previewData.pelunasanValue, null]; // For L:M36
+            dataPayload.pelunasanValue = [previewData.pelunasanValue, null];
         }
 
         const payload = {
@@ -927,6 +970,177 @@ const App: React.FC = () => {
             console.error("Error updating preview sheet:", err);
         }
     };
+    
+    // --- SPD Handlers ---
+
+    const handleInitiateSpdCreation = (selectedInvoices: PaymentOverviewInvoice[]) => {
+        if (selectedInvoices.length === 0) return;
+        setInvoicesForSpd(selectedInvoices);
+        setEditingSpd(null);
+        setIsSpdModalOpen(true);
+    };
+
+    const handleEditSpd = (spdToEdit: PaymentOverviewInvoice) => {
+        setEditingSpd(spdToEdit);
+        setInvoicesForSpd([]);
+        setIsSpdModalOpen(true);
+    };
+
+    const handleCloseSpdModal = () => {
+        setIsSpdModalOpen(false);
+        setInvoicesForSpd([]);
+        setEditingSpd(null);
+    };
+    
+    const handleSaveSpdFromInvoices = async (commonData: Partial<PaymentOverviewInvoice>, selectedInvoices: PaymentOverviewInvoice[]) => {
+        const originalSpdDocs = [...spdDocs];
+        const originalInvoices = [...invoices];
+    
+        const newSpdDocs: PaymentOverviewInvoice[] = selectedInvoices.map(inv => ({
+            ...inv, 
+            ...commonData,
+            id: `spd-${Date.now()}-${Math.random()}`,
+            number: commonData.number!,
+            invoiceNumber: inv.number,
+            invoiceDate: inv.date,
+            totalPiutang: inv.amount,
+            spdNumber: undefined,
+        }));
+        
+        setSpdDocs(prev => [...newSpdDocs, ...prev]);
+        const updatedInvoices = invoices.map(inv => {
+            if (selectedInvoices.find(sel => sel.id === inv.id)) {
+                return { ...inv, spdNumber: commonData.number };
+            }
+            return inv;
+        });
+        setInvoices(updatedInvoices);
+    
+        try {
+            const spdCreatePromises = newSpdDocs.map(spd => 
+                postData({ action: 'create', sheetName: 'NOMOR SPD', data: mapSpdToSheetData(spd) })
+            );
+            const invoiceUpdatePromises = selectedInvoices.map(inv => 
+                postData({ 
+                    action: 'update', 
+                    sheetName: 'Invoices', 
+                    id: inv.id, 
+                    data: mapInvoiceToSheetData({ ...inv, spdNumber: commonData.number }) 
+                })
+            );
+            
+            await Promise.all([...spdCreatePromises, ...invoiceUpdatePromises]);
+        } catch (err) {
+            alert('Failed to save SPDs and link invoices. Reverting changes.');
+            setSpdDocs(originalSpdDocs);
+            setInvoices(originalInvoices);
+        }
+    };
+    
+    const handleUpdateSpd = async (spdData: PaymentOverviewInvoice) => {
+        const originalSpdDocs = [...spdDocs];
+        const originalInvoices = [...invoices];
+        
+        const isNew = !originalSpdDocs.some(d => d.id === spdData.id);
+        const oldSpd = isNew ? null : originalSpdDocs.find(d => d.id === spdData.id);
+
+        if (isNew) {
+            setSpdDocs(prev => [spdData, ...prev]);
+        } else {
+            setSpdDocs(prev => prev.map(d => d.id === spdData.id ? spdData : d));
+        }
+        
+        const updatedInvoices = invoices.map(inv => {
+            if (oldSpd && oldSpd.invoiceNumber && oldSpd.invoiceNumber !== spdData.invoiceNumber && inv.number === oldSpd.invoiceNumber) {
+                return { ...inv, spdNumber: '' };
+            }
+            if (spdData.invoiceNumber && inv.number === spdData.invoiceNumber) {
+                return { ...inv, spdNumber: spdData.number };
+            }
+            return inv;
+        });
+        setInvoices(updatedInvoices);
+
+        try {
+            await postData({ action: isNew ? 'create' : 'update', sheetName: 'NOMOR SPD', id: spdData.id, data: mapSpdToSheetData(spdData) });
+            
+            const promises = [];
+            if (oldSpd && oldSpd.invoiceNumber && oldSpd.invoiceNumber !== spdData.invoiceNumber) {
+                const oldInvoiceToUpdate = originalInvoices.find(inv => inv.number === oldSpd.invoiceNumber);
+                if (oldInvoiceToUpdate) {
+                    promises.push(postData({
+                        action: 'update',
+                        sheetName: 'Invoices',
+                        id: oldInvoiceToUpdate.id,
+                        data: mapInvoiceToSheetData({ ...oldInvoiceToUpdate, spdNumber: '' })
+                    }));
+                }
+            }
+
+            if (spdData.invoiceNumber) {
+                const newInvoiceToUpdate = originalInvoices.find(inv => inv.number === spdData.invoiceNumber);
+                if (newInvoiceToUpdate && newInvoiceToUpdate.spdNumber !== spdData.number) {
+                    promises.push(postData({
+                        action: 'update',
+                        sheetName: 'Invoices',
+                        id: newInvoiceToUpdate.id,
+                        data: mapInvoiceToSheetData({ ...newInvoiceToUpdate, spdNumber: spdData.number })
+                    }));
+                }
+            }
+            await Promise.all(promises);
+
+        } catch (err) {
+            alert('Failed to save SPD and link invoice. Reverting changes.');
+            setSpdDocs(originalSpdDocs);
+            setInvoices(originalInvoices);
+        }
+    };
+
+    const handleDeleteSpd = async (spdId: string) => {
+        const originalSpdDocs = [...spdDocs];
+        const originalInvoices = [...invoices];
+        
+        const spdToDelete = originalSpdDocs.find(doc => doc.id === spdId);
+        if (!spdToDelete) {
+            alert("Error: Could not find the SPD to delete.");
+            return;
+        }
+
+        // Optimistic UI Update
+        setSpdDocs(prev => prev.filter(doc => doc.id !== spdId));
+        if (spdToDelete.invoiceNumber) {
+            setInvoices(prev => prev.map(inv => 
+                inv.number === spdToDelete.invoiceNumber ? { ...inv, spdNumber: '' } : inv
+            ));
+        }
+
+        try {
+            // Single API call to the new backend action
+            const response = await postData({ 
+                action: 'deleteSpdAndUnlinkInvoice', 
+                id: spdId 
+            });
+
+            if (response && !response.success) {
+                throw new Error(response.message || 'Backend failed to delete the SPD and unlink.');
+            }
+
+        } catch (err: any) {
+            console.error("Delete SPD operation failed:", err);
+            alert(`Failed to delete SPD: ${err.message}. Reverting changes.`);
+            // Revert UI on failure
+            setSpdDocs(originalSpdDocs);
+            setInvoices(originalInvoices);
+            throw err;
+        }
+    };
+
+    const handleGoToSpdPreview = (docs: PaymentOverviewInvoice[]) => {
+        setPreviewingSpdDocs(docs);
+        setActiveView('spd/preview');
+    };
+    
 
   const renderContent = () => {
     if (loading && !isAuthenticated) {
@@ -1019,6 +1233,7 @@ const App: React.FC = () => {
                         onDeleteInvoice={(id) => handleDeleteInvoice(id, 'Invoices')}
                         setActiveView={setActiveView}
                         setEditingInvoice={setEditingInvoice}
+                        onInitiateSpdCreation={handleInitiateSpdCreation}
                         loading={loading}
                         error={error}
                     />;
@@ -1058,6 +1273,19 @@ const App: React.FC = () => {
                         sales={sales}
                         salesOrders={salesOrders}
                     />;
+        case 'spd':
+            return <SpdPage
+                        spds={spdDocs}
+                        onEditSpd={handleEditSpd}
+                        onDeleteSpd={handleDeleteSpd}
+                        onPreviewSpd={handleGoToSpdPreview}
+                    />;
+        case 'spd/preview':
+            return <SpdPreviewPage
+                        spdDocs={previewingSpdDocs || []}
+                        consumers={consumers}
+                        setActiveView={setActiveView}
+                    />;
         case 'tax-invoices':
             return <TaxInvoicePage taxInvoices={taxInvoices} loading={loading} error={error} />;
         case 'products/sales-order':
@@ -1074,6 +1302,7 @@ const App: React.FC = () => {
                         setEditingSale={setEditingSale}
                         onAddSale={handleAddSale}
                         onUpdateSale={handleUpdateSale}
+                        salespersons={uniqueSalesPersons}
                     />;
         default:
             return <Dashboard invoices={invoices} />;
@@ -1106,6 +1335,18 @@ const App: React.FC = () => {
           {renderContent()}
         </main>
       </div>
+      <AddSpdModal
+        isOpen={isSpdModalOpen}
+        onClose={handleCloseSpdModal}
+        onSaveBatch={handleSaveSpdFromInvoices}
+        onSaveSingle={handleUpdateSpd}
+        invoicesForCreation={invoicesForSpd}
+        spdToEdit={editingSpd}
+        consumers={consumers}
+        sales={sales}
+        allInvoices={invoices}
+        spds={spdDocs}
+       />
     </div>
   );
 };

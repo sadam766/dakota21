@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDownIcon } from './icons';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySPriD5FNopJ4n9oGxFpght_1XuUlJYMIc6zDBh5amt1PQArahi1fegu1TQ08SqzB0UA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec";
 
 interface Category {
   id: string;

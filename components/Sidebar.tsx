@@ -14,6 +14,7 @@ const navItems: NavItemType[] = [
         ]
     },
     { id: 'invoice/nomor-invoice', name: 'Invoice Number', icon: <InvoiceIcon className="w-6 h-6" /> },
+    { id: 'spd', name: 'SPD', icon: <InvoiceIcon className="w-6 h-6" /> },
     { id: 'tax-invoices', name: 'TaxInvoices', icon: <TaxIcon className="w-6 h-6" /> },
     {
         id: 'products', name: 'Products', icon: <ProductIcon className="w-6 h-6" />,
@@ -54,6 +55,7 @@ const translations = {
         'invoice-list': 'Invoice List',
         'invoice/add': 'Add Invoice',
         'invoice/nomor-invoice': 'Invoice Number',
+        'spd': 'SPD',
         'tax-invoices': 'TaxInvoices',
         products: 'Products',
         'products/list': 'List Product',
@@ -76,6 +78,7 @@ const translations = {
         'invoice-list': 'Daftar Faktur',
         'invoice/add': 'Tambah Faktur',
         'invoice/nomor-invoice': 'Nomor Faktur',
+        'spd': 'SPD',
         'tax-invoices': 'Faktur Pajak',
         products: 'Produk',
         'products/list': 'Daftar Produk',
@@ -105,10 +108,10 @@ const NavItem: React.FC<NavItemProps> = ({ item, activeView, setActiveView, isSi
     const isParent = item.subItems && item.subItems.length > 0;
     
     // An item is active if its ID matches the active view, or if it's a parent of the active view's sub-item.
-    // Special check for 'consumers' which is both a page and part of the 'customers' group.
     const isActive = activeView === item.id || 
                     (isParent && item.subItems!.some(sub => sub.id === activeView)) ||
-                    (item.id === 'customers' && activeView.startsWith('consumers'));
+                    (item.id === 'customers' && activeView.startsWith('consumers')) ||
+                    (item.id === 'spd' && activeView.startsWith('spd'));
     
     const t = translations[language];
 
@@ -157,6 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isSidebarC
     
     const findActiveParent = (activeViewId: string) => {
         if (activeViewId.startsWith('consumers')) return 'customers';
+        if (activeViewId.startsWith('spd')) return 'spd';
         const parent = navItems.find(navItem => 
             navItem.subItems && navItem.subItems.some(sub => sub.id === activeViewId)
         );

@@ -1,5 +1,6 @@
 
 
+
 import type React from 'react';
 
 export interface NavItemType {
@@ -57,6 +58,19 @@ export interface PaymentOverviewInvoice {
   taxInvoiceNumber?: string;
   taxInvoiceDate?: string;
   createdBy?: string;
+  // Fields for SPD page, now as a single entry
+  sales?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  customerReceiptDate?: string;
+  dueDate?: string;
+  totalPiutang?: number;
+  keterangan?: string;
+  noKuitansi?: string;
+  noFakturPajak?: string;
+  suratJalan?: string;
+  // Field to link Invoice to SPD
+  spdNumber?: string;
 }
 
 export interface TaxInvoiceType {

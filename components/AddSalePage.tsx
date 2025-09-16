@@ -10,6 +10,7 @@ interface AddSalePageProps {
   setEditingSale: (sale: SalesType | null) => void;
   onAddSale: (saleData: Omit<SalesType, 'id'>) => void;
   onUpdateSale: (saleData: SalesType) => void;
+  salespersons: string[];
 }
 
 const formatNumberInput = (value: string | number): string => {
@@ -26,7 +27,7 @@ const parseFormattedNumber = (value: string): number => {
 };
 
 
-const AddSalePage: React.FC<AddSalePageProps> = ({ setActiveView, saleToEdit, setEditingSale, onAddSale, onUpdateSale }) => {
+const AddSalePage: React.FC<AddSalePageProps> = ({ setActiveView, saleToEdit, setEditingSale, onAddSale, onUpdateSale, salespersons }) => {
   const [saleData, setSaleData] = useState<Partial<SalesType>>({
     soNumber: '',
     customer: '',
@@ -132,15 +133,18 @@ const AddSalePage: React.FC<AddSalePageProps> = ({ setActiveView, saleToEdit, se
                     </div>
                      <div>
                         <label htmlFor="salesPerson" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sales Person</label>
-                        <input 
-                            type="text" 
+                        <select 
                             id="salesPerson" 
                             value={saleData.salesPerson || ''}
                             onChange={handleChange}
-                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-gray-800 dark:text-gray-200" 
-                            placeholder="e.g., Jane Smith"
+                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-gray-800 dark:text-gray-200"
                             required
-                        />
+                        >
+                            <option value="">Select a Sales Person</option>
+                            {salespersons.map(person => (
+                                <option key={person} value={person}>{person}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
