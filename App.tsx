@@ -38,7 +38,7 @@ const mapSheetDataToInvoice = (sheetRow: any): PaymentOverviewInvoice => ({
     id: sheetRow.id,
     number: String(sheetRow['NUMBER'] || ''),
     client: String(sheetRow['CLIENT'] || ''),
-    soNumber: String(sheetRow.soNumber || ''),
+    soNumber: String(findValueByKey(sheetRow, 'SO Number') || findValueByKey(sheetRow, 'SO') || findValueByKey(sheetRow, 'sales order') || ''),
     date: parseSheetDate(sheetRow['DATE']),
     amount: Number(sheetRow['AMOUNT']) || 0,
     status: String(sheetRow['STATUS'] || 'Draft') as PaymentOverviewInvoice['status'],
@@ -62,7 +62,7 @@ const mapInvoiceToSheetData = (invoice: PaymentOverviewInvoice) => ({
     'STATUS': invoice.status,
     'PEMBUAT INVOICE': invoice.createdBy,
     'Nomor SPD': invoice.spdNumber,
-    soNumber: invoice.soNumber,
+    'SO Number': invoice.soNumber,
 });
 
 const mapSheetDataToNomorFaktur = (sheetRow: any): PaymentOverviewInvoice => ({
@@ -100,7 +100,7 @@ const mapSheetDataToSpd = (sheetRow: any): PaymentOverviewInvoice => ({
     dueDate: parseSheetDate(sheetRow['Tanggal Jatuh Tempo']),
     totalPiutang: Number(sheetRow['Total Piutang'] || sheetRow['JUMLAH'] || 0),
     keterangan: String(sheetRow['Keterangan'] || ''),
-    soNumber: String(sheetRow['SALES ORDER/SO'] || sheetRow['No. SO.'] || ''),
+    soNumber: String(sheetRow['SO'] || sheetRow['SALES ORDER/SO'] || sheetRow['No. SO.'] || ''),
     amount: Number(sheetRow['JUMLAH'] || sheetRow['Total Piutang'] || 0),
     status: 'Draft',
     createdBy: String(findValueByKey(sheetRow, 'PEMBUAT') || ''),
@@ -112,6 +112,7 @@ const mapSheetDataToSpd = (sheetRow: any): PaymentOverviewInvoice => ({
 const mapSpdToSheetData = (spd: PaymentOverviewInvoice) => ({
     id: spd.id,
     'Tanggal': spd.date,
+    'SO': spd.soNumber,
     'sales': spd.sales,
     'customer': spd.client,
     'SPD': spd.number,
@@ -121,11 +122,10 @@ const mapSpdToSheetData = (spd: PaymentOverviewInvoice) => ({
     'Tanggal Jatuh Tempo': spd.dueDate,
     'Total Piutang': spd.totalPiutang,
     'Keterangan': spd.keterangan,
-    'PEMBUAT': spd.createdBy,
     'NO. KUITANSI': spd.noKuitansi,
     'NO. FAKTUR PAJAK': spd.noFakturPajak,
     'SURAT JALAN': spd.suratJalan,
-    'No. SO.': spd.soNumber,
+    'PEMBUAT': spd.createdBy,
 });
 
 const parseSheetDate = (sheetDate: any): string => {
