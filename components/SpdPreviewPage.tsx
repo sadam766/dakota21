@@ -129,30 +129,31 @@ const SpdPreviewPage: React.FC<SpdPreviewPageProps> = ({ spdDocs, consumers, set
             </div>
         </div>
 
-        <table className="w-full border-collapse border border-black text-xs">
+        <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="text-center font-bold">
-              <td colSpan={2} className="border border-black p-1 w-[13%]">JUMLAH</td>
-              <td className="border border-black p-1 w-[10%]">TANGGAL</td>
-              <td className="border border-black p-1 w-[12%]">NO. KUITANSI</td>
-              <td className="border border-black p-1 w-[15%]">NO. INVOICE</td>
-              <td className="border border-black p-1 w-[15%]">NILAI</td>
-              <td className="border border-black p-1 w-[15%]">NO. FAKTUR PAJAK</td>
-              <td className="border border-black p-1 w-[10%]">NO. SO.</td>
-              <td className="border border-black p-1 w-[10%]">NO. SURAT JALAN</td>
+              <td colSpan={2} className="border border-black p-1">JUMLAH</td>
+              <td className="border border-black p-1">TANGGAL</td>
+              <td className="border border-black p-1">NO. KUITANSI</td>
+              <td className="border border-black p-1">NO. INVOICE</td>
+              <td className="border border-black p-1">NILAI</td>
+              <td className="border border-black p-1">NO. FAKTUR PAJAK</td>
+              <td className="border border-black p-1">NO. SO.</td>
+              <td colSpan={3} className="border border-black p-1">NO. SURAT JALAN</td>
             </tr>
           </thead>
           <tbody>
             {[...Array(totalRowsInTable)].map((_, index) => {
               const doc = spdDocs[index];
+              const cellClass = `p-1 ${doc ? 'border border-black' : 'border-l border-r border-b border-black'}`;
               return (
                 <tr key={index}>
-                  <td className="border border-black p-1 text-center w-[8%]">{doc ? '1' : ''}</td>
-                  <td className="border border-black p-1 text-center w-[5%]">{doc ? 'SET' : ''}</td>
-                  <td className="border border-black p-1 text-center">{doc ? formatDate(doc.invoiceDate) : ''}</td>
-                  <td className="border border-black p-1 text-center">{doc?.noKuitansi || ''}</td>
-                  <td className="border border-black p-1 text-center">{doc?.invoiceNumber || ''}</td>
-                  <td className="border border-black p-1">
+                  <td className={`${cellClass} text-center`}>{doc ? '1' : ''}</td>
+                  <td className={`${cellClass} text-center`}>{doc ? 'SET' : ''}</td>
+                  <td className={`${cellClass} text-center`}>{doc ? formatDate(doc.invoiceDate) : ''}</td>
+                  <td className={`${cellClass} text-center`}>{doc?.noKuitansi || ''}</td>
+                  <td className={`${cellClass} text-center`}>{doc?.invoiceNumber || ''}</td>
+                  <td className={`${cellClass}`}>
                     {doc && (
                         <div className="flex justify-between">
                             <span>Rp.</span>
@@ -160,9 +161,11 @@ const SpdPreviewPage: React.FC<SpdPreviewPageProps> = ({ spdDocs, consumers, set
                         </div>
                     )}
                   </td>
-                  <td className="border border-black p-1 text-center">{doc?.noFakturPajak || ''}</td>
-                  <td className="border border-black p-1 text-center">{doc?.soNumber || ''}</td>
-                  <td className="border border-black p-1 text-center">{doc?.suratJalan || ''}</td>
+                  <td className={`${cellClass} text-center`}>{doc?.noFakturPajak || ''}</td>
+                  <td className={`${cellClass} text-center`}>{doc?.soNumber || ''}</td>
+                  <td className={`${cellClass} text-center whitespace-pre-wrap`}>{doc?.suratJalan || ''}</td>
+                  <td className={`${cellClass}`}></td>
+                  <td className={`${cellClass}`}></td>
                 </tr>
               );
             })}

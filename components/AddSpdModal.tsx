@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { PaymentOverviewInvoice, ConsumerType, SalesType } from '../types';
 import { XIcon } from './icons';
 
@@ -19,6 +20,12 @@ interface AddSpdModalProps {
 const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch, onSaveSingle, consumers, invoicesForCreation = [], spdToEdit, sales, allInvoices, spds }) => {
   const [formData, setFormData] = useState<Partial<PaymentOverviewInvoice>>({});
   const mode = spdToEdit ? 'edit' : 'create';
+
+  const [isSoDropdownOpen, setIsSoDropdownOpen] = useState(false);
+  const soSearchRef = useRef<HTMLDivElement>(null);
+  const [filteredSOs, setFilteredSOs] = useState<string[]>([]);
+
+  const uniqueSOs = useMemo(() => [...new Set(sales.map(s => s.soNumber).filter(Boolean))], [sales]);
 
   const nextSpdNumberInfo = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -55,6 +62,7 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
         client: firstInvoice?.client || '',
         sales: saleInfo?.salesPerson || '',
         number: nextSpdNumberInfo.fullNumber,
+        soNumber: firstInvoice?.soNumber || '',
       };
     }
     setFormData(initialData);
@@ -69,6 +77,16 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
       }
     }
   }, [isOpen, spdToEdit, invoicesForCreation, nextSpdNumberInfo, sales]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (soSearchRef.current && !soSearchRef.current.contains(event.target as Node)) {
+            setIsSoDropdownOpen(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => { document.removeEventListener("mousedown", handleClickOutside); };
+  }, []);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -79,6 +97,36 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
     const { name, value } = e.target;
     const parsedValue = parseInt(value.replace(/[^0-9]/g, ''), 10) || 0;
     setFormData(prev => ({ ...prev, [name]: parsedValue }));
+  };
+
+  const handleSoInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setFormData(prev => ({ ...prev, soNumber: term }));
+    if (term) {
+        setFilteredSOs(uniqueSOs.filter(so => so.toLowerCase().includes(term.toLowerCase())));
+    } else {
+        setFilteredSOs(uniqueSOs);
+    }
+    setIsSoDropdownOpen(true);
+  };
+
+  const handleSoFocus = () => {
+      setFilteredSOs(uniqueSOs);
+      setIsSoDropdownOpen(true);
+  };
+
+  const handleSoSelect = (selectedSoNumber: string) => {
+      setFormData(prev => ({ ...prev, soNumber: selectedSoNumber }));
+      setIsSoDropdownOpen(false);
+      if (mode === 'create') {
+          const saleInfo = sales.find(s => s.soNumber === selectedSoNumber);
+          if (saleInfo) {
+              setFormData(prev => ({
+                  ...prev,
+                  sales: saleInfo.salesPerson,
+              }));
+          }
+      }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -135,6 +183,35 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
                   <label htmlFor="sales" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sales</label>
                   <input type="text" id="sales" name="sales" value={formData.sales || ''} onChange={handleChange} className="mt-1 block w-full input-style" placeholder="Nama Sales" />
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div ref={soSearchRef} className="relative">
+                    <label htmlFor="soNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nomor SO</label>
+                    <input
+                        type="text"
+                        id="soNumber"
+                        name="soNumber"
+                        value={formData.soNumber || ''}
+                        onChange={handleSoInputChange}
+                        onFocus={handleSoFocus}
+                        autoComplete="off"
+                        className="mt-1 block w-full input-style"
+                        placeholder="Cari atau pilih Nomor SO"
+                    />
+                    {isSoDropdownOpen && filteredSOs.length > 0 && (
+                        <ul className="absolute z-20 w-full bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
+                            {filteredSOs.map(soNum => (
+                                <li
+                                    key={soNum}
+                                    onClick={() => handleSoSelect(soNum)}
+                                    className="p-3 hover:bg-indigo-50 dark:hover:bg-slate-600 cursor-pointer text-sm text-gray-800 dark:text-gray-200"
+                                >
+                                    {soNum}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             </div>
             {mode === 'edit' && (
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
