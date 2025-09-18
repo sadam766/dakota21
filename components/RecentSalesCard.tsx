@@ -1,9 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import type { RecentSale } from '../types';
-import { MoreVerticalIcon } from './icons';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySPriD5FNopJ4n9oGxFpght_1XuUlJYMIc6zDBh5amt1PQArahi1fegu1TQ08SqzB0UA/exec";
+import React, { useMemo } from 'react';
+import type { RecentSale, PaymentOverviewInvoice } from '../types';
 
 const StatusBadge = ({ status }: { status: RecentSale['status'] }) => {
     const statusClasses = {
@@ -14,49 +12,68 @@ const StatusBadge = ({ status }: { status: RecentSale['status'] }) => {
     return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusClasses[status]}`}>{status}</span>;
 }
 
-const RecentSalesCard: React.FC = () => {
-    const [sales, setSales] = useState<RecentSale[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+interface RecentSalesCardProps {
+  invoices: PaymentOverviewInvoice[];
+}
 
-    useEffect(() => {
-        const mockRecentSales: RecentSale[] = [
-          { id: 'INV-1234', customer: 'Liam Johnson', avatar: 'https://i.pravatar.cc/150?u=liam', amount: 2500000, status: 'Paid', date: 'Jul 25, 2024' },
-          { id: 'INV-1235', customer: 'Olivia Smith', avatar: 'https://i.pravatar.cc/150?u=olivia', amount: 1500000, status: 'Pending', date: 'Jul 24, 2024' },
-          { id: 'INV-1236', customer: 'Noah Williams', avatar: 'https://i.pravatar.cc/150?u=noah', amount: 3500000, status: 'Unpaid', date: 'Jul 23, 2024' },
-          { id: 'INV-1237', customer: 'Emma Brown', avatar: 'https://i.pravatar.cc/150?u=emma', amount: 4500000, status: 'Paid', date: 'Jul 22, 2024' },
-        ];
-        setSales(mockRecentSales);
-        setLoading(false);
-        setError(null);
-    }, []);
+const RecentSalesCard: React.FC<RecentSalesCardProps> = ({ invoices }) => {
 
-    const renderSkeleton = () => (
-        [...Array(4)].map((_, i) => (
-            <tr key={i}>
-                <td className="p-3"><div className="h-5 bg-gray-200 dark:bg-slate-700 rounded animate-pulse w-24"></div></td>
-                <td className="p-3">
-                    <div className="flex items-center">
-                        <div className="h-5 bg-gray-200 dark:bg-slate-700 rounded animate-pulse w-32"></div>
-                    </div>
-                </td>
-                <td className="p-3"><div className="h-5 bg-gray-200 dark:bg-slate-700 rounded animate-pulse w-20"></div></td>
-                <td className="p-3"><div className="h-5 bg-gray-200 dark:bg-slate-700 rounded animate-pulse w-16"></div></td>
-                <td className="p-3"><div className="h-6 bg-gray-200 dark:bg-slate-700 rounded-full animate-pulse w-20"></div></td>
-            </tr>
-        ))
-    );
+    const recentSales = useMemo(() => {
+        if (!invoices) {
+            return [];
+        }
+
+        const mapStatus = (status: PaymentOverviewInvoice['status']): RecentSale['status'] => {
+            switch (status) {
+                case 'Paid':
+                    return 'Paid';
+                case 'Pending':
+                case 'Draft':
+                    return 'Pending';
+                case 'Unpaid':
+                case 'Overdue':
+                    return 'Unpaid';
+                default:
+                    return 'Pending';
+            }
+        };
+
+        const formatDate = (dateString: string) => {
+            if (!dateString) return 'No Date';
+            try {
+                const date = new Date(dateString);
+                if(isNaN(date.getTime())) return dateString;
+                return new Intl.DateTimeFormat('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                }).format(date);
+            } catch (e) {
+                return dateString;
+            }
+        };
+
+        return invoices
+            .filter(invoice => invoice.date)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 4)
+            .map((invoice): RecentSale => ({
+                id: invoice.number,
+                customer: invoice.client,
+                avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(invoice.client)}`,
+                amount: invoice.amount,
+                status: mapStatus(invoice.status),
+                date: formatDate(invoice.date),
+            }));
+
+    }, [invoices]);
 
     const renderContent = () => {
-        if (loading) return renderSkeleton();
-        if (error) return (
-            <tr><td colSpan={5} className="text-center p-6 text-red-500">{error}</td></tr>
-        );
-        if (sales.length === 0) return (
+        if (recentSales.length === 0) return (
             <tr><td colSpan={5} className="text-center p-6 text-gray-500 dark:text-gray-400">No recent sales found.</td></tr>
         );
 
-        return sales.map(sale => (
+        return recentSales.map(sale => (
             <tr key={sale.id} className="border-b border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50 last:border-0">
                 <td className="p-3 font-medium text-gray-700 dark:text-gray-300">{sale.id}</td>
                 <td className="p-3">

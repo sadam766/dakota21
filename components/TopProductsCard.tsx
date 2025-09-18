@@ -1,19 +1,40 @@
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MoreVerticalIcon } from './icons';
+import type { SalesOrderType } from '../types';
 
-const TopProductsCard: React.FC = () => {
+interface TopProductsCardProps {
+  salesOrders: SalesOrderType[];
+}
+
+const TopProductsCard: React.FC<TopProductsCardProps> = ({ salesOrders }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Mock data to match the image exactly
-    const products = [
-        { id: '1', name: 'Modern Desk Lamp', sales: 120, revenue: 60000 },
-        { id: '2', name: 'Ergonomic Chair', sales: 85, revenue: 170000 },
-        { id: '3', name: 'Wireless Keyboard', sales: 250, revenue: 12500 },
-        { id: '4', name: '4K Monitor', sales: 50, revenue: 250000 },
-    ];
+    const topProducts = useMemo(() => {
+        if (!salesOrders || salesOrders.length === 0) {
+            return [];
+        }
+
+        const productStats: { [key: string]: { name: string; sales: number; revenue: number } } = {};
+
+        salesOrders.forEach(order => {
+            if (!productStats[order.name]) {
+                productStats[order.name] = {
+                    name: order.name,
+                    sales: 0,
+                    revenue: 0,
+                };
+            }
+            productStats[order.name].sales += order.quantity;
+            productStats[order.name].revenue += order.quantity * order.price;
+        });
+
+        return Object.values(productStats)
+            .sort((a, b) => b.sales - a.sales) // Sort by most sales
+            .slice(0, 4); // Get top 4
+    }, [salesOrders]);
 
     useEffect(() => {
         setLoading(false);
@@ -40,10 +61,13 @@ const TopProductsCard: React.FC = () => {
         if (error) {
             return <div className="flex items-center justify-center h-full text-red-500">{error}</div>;
         }
+        if (topProducts.length === 0) {
+            return <p className="text-sm text-gray-500 dark:text-gray-400">No product sales data available to display.</p>;
+        }
         return (
             <div className="space-y-6">
-                {products.map(product => (
-                    <div key={product.id} className="flex items-center space-x-4">
+                {topProducts.map(product => (
+                    <div key={product.name} className="flex items-center space-x-4">
                         <div className="flex-1">
                             <p className="font-semibold text-gray-800 dark:text-gray-200">{product.name}</p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{product.sales} sales</p>

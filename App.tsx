@@ -1169,7 +1169,7 @@ const App: React.FC = () => {
 
     switch(activeView) {
         case 'dashboard':
-            return <Dashboard invoices={invoices} />;
+            return <Dashboard invoices={invoices} salesOrders={salesOrders} products={products} consumers={consumers} />;
         case 'calendar':
             return <CalendarPage />;
         case 'products/list':
@@ -1305,7 +1305,7 @@ const App: React.FC = () => {
                         salespersons={uniqueSalesPersons}
                     />;
         default:
-            return <Dashboard invoices={invoices} />;
+            return <Dashboard invoices={invoices} salesOrders={salesOrders} products={products} consumers={consumers} />;
     }
   }
 
