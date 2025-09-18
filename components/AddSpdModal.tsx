@@ -21,6 +21,10 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
   const [formData, setFormData] = useState<Partial<PaymentOverviewInvoice>>({});
   const mode = spdToEdit ? 'edit' : 'create';
 
+  const [suratJalan1, setSuratJalan1] = useState('');
+  const [suratJalan2, setSuratJalan2] = useState('');
+  const [suratJalan3, setSuratJalan3] = useState('');
+
   const [isSoDropdownOpen, setIsSoDropdownOpen] = useState(false);
   const soSearchRef = useRef<HTMLDivElement>(null);
   const [filteredSOs, setFilteredSOs] = useState<string[]>([]);
@@ -66,12 +70,19 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
       };
     }
     setFormData(initialData);
+    setSuratJalan1('');
+    setSuratJalan2('');
+    setSuratJalan3('');
   };
 
   useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && spdToEdit) {
         setFormData(spdToEdit);
+        const sjs = spdToEdit.suratJalan?.split(/[\s,;\n]+/).filter(Boolean) || [];
+        setSuratJalan1(sjs[0] || '');
+        setSuratJalan2(sjs[1] || '');
+        setSuratJalan3(sjs[2] || '');
       } else {
         resetForm(true);
       }
@@ -131,18 +142,22 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const combinedSuratJalan = [suratJalan1, suratJalan2, suratJalan3].filter(Boolean).join('\n');
+    const finalFormData = { ...formData, suratJalan: combinedSuratJalan };
+
     if (mode === 'edit') {
-        if (!formData.number || !formData.client) {
+        if (!finalFormData.number || !finalFormData.client) {
             alert("Please fill SPD Number and Customer.");
             return;
         }
-        onSaveSingle(formData as PaymentOverviewInvoice);
+        onSaveSingle(finalFormData as PaymentOverviewInvoice);
     } else {
-        if (!formData.number || !formData.client) {
+        if (!finalFormData.number || !finalFormData.client) {
             alert("Please fill SPD Number and Customer.");
             return;
         }
-        onSaveBatch(formData, invoicesForCreation);
+        onSaveBatch(finalFormData, invoicesForCreation);
     }
     onClose();
   };
@@ -235,7 +250,7 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
                   <input type="date" id="dueDate" name="dueDate" value={formData.dueDate || ''} onChange={handleChange} className="mt-1 block w-full input-style" />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                       <label htmlFor="noKuitansi" className="block text-sm font-medium text-gray-700 dark:text-gray-300">No. Kuitansi</label>
                       <input type="text" id="noKuitansi" name="noKuitansi" value={formData.noKuitansi || ''} onChange={handleChange} className="mt-1 block w-full input-style" />
@@ -244,9 +259,19 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
                       <label htmlFor="noFakturPajak" className="block text-sm font-medium text-gray-700 dark:text-gray-300">No. Faktur Pajak</label>
                       <input type="text" id="noFakturPajak" name="noFakturPajak" value={formData.noFakturPajak || ''} onChange={handleChange} className="mt-1 block w-full input-style" />
                   </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                      <label htmlFor="suratJalan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Surat Jalan</label>
-                      <input type="text" id="suratJalan" name="suratJalan" value={formData.suratJalan || ''} onChange={handleChange} className="mt-1 block w-full input-style" />
+                      <label htmlFor="suratJalan1" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Surat Jalan 1</label>
+                      <input type="text" id="suratJalan1" name="suratJalan1" value={suratJalan1} onChange={(e) => setSuratJalan1(e.target.value)} className="mt-1 block w-full input-style" />
+                  </div>
+                  <div>
+                      <label htmlFor="suratJalan2" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Surat Jalan 2</label>
+                      <input type="text" id="suratJalan2" name="suratJalan2" value={suratJalan2} onChange={(e) => setSuratJalan2(e.target.value)} className="mt-1 block w-full input-style" />
+                  </div>
+                  <div>
+                      <label htmlFor="suratJalan3" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Surat Jalan 3</label>
+                      <input type="text" id="suratJalan3" name="suratJalan3" value={suratJalan3} onChange={(e) => setSuratJalan3(e.target.value)} className="mt-1 block w-full input-style" />
                   </div>
               </div>
                {mode === 'edit' && (

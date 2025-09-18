@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { PaymentOverviewInvoice, ConsumerType } from '../types';
 import { ChevronLeftIcon, PrintIcon, ExportIcon } from './icons';
@@ -146,6 +147,7 @@ const SpdPreviewPage: React.FC<SpdPreviewPageProps> = ({ spdDocs, consumers, set
             {[...Array(totalRowsInTable)].map((_, index) => {
               const doc = spdDocs[index];
               const cellClass = `p-1 ${doc ? 'border border-black' : 'border-l border-r border-b border-black'}`;
+              const suratJalanNumbers = doc?.suratJalan ? doc.suratJalan.split(/[\s,;\n]+/).filter(Boolean) : [];
               return (
                 <tr key={index}>
                   <td className={`${cellClass} text-center`}>{doc ? '1' : ''}</td>
@@ -163,9 +165,9 @@ const SpdPreviewPage: React.FC<SpdPreviewPageProps> = ({ spdDocs, consumers, set
                   </td>
                   <td className={`${cellClass} text-center`}>{doc?.noFakturPajak || ''}</td>
                   <td className={`${cellClass} text-center`}>{doc?.soNumber || ''}</td>
-                  <td className={`${cellClass} text-center whitespace-pre-wrap`}>{doc?.suratJalan || ''}</td>
-                  <td className={`${cellClass}`}></td>
-                  <td className={`${cellClass}`}></td>
+                  <td className={`${cellClass} text-center`}>{suratJalanNumbers[0] || ''}</td>
+                  <td className={`${cellClass} text-center`}>{suratJalanNumbers[1] || ''}</td>
+                  <td className={`${cellClass} text-center`}>{suratJalanNumbers[2] || ''}</td>
                 </tr>
               );
             })}
