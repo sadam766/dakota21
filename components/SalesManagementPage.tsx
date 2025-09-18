@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { SalesType, DocumentType, TaxInvoiceType, PaymentOverviewInvoice } from '../types';
 import {
@@ -207,18 +208,23 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
     const taxInvoiceMap = new Map<string, TaxInvoiceType>();
     taxInvoices.forEach(ti => {
         if (ti.referensi) {
-            // In case of multiple tax invoices for one SO, we can decide which one to take.
-            // For now, let's take the latest one.
             const existing = taxInvoiceMap.get(ti.referensi);
             if (!existing || new Date(ti.tanggalFaktur) > new Date(existing.tanggalFaktur)) {
                  taxInvoiceMap.set(ti.referensi, ti);
             }
         }
     });
+    
+    const hasPoNumber = selectedSale.poNumber && selectedSale.poNumber.trim() !== '';
 
-    return invoices
-        .filter(inv => inv.soNumber === selectedSale.soNumber)
-        .map(inv => {
+    // If the selected sale has a PO number, filter all invoices by that PO number.
+    // Otherwise, fall back to filtering by SO number.
+    const relevantInvoices = hasPoNumber
+      ? invoices.filter(inv => inv.poNumber === selectedSale.poNumber)
+      : invoices.filter(inv => inv.soNumber === selectedSale.soNumber);
+
+
+    return relevantInvoices.map(inv => {
             const statusMap: { [key in PaymentOverviewInvoice['status']]: DocumentType['status'] } = {
                 'Paid': 'PAID', 'Unpaid': 'UNPAID', 'Pending': 'PENDING', 'Overdue': 'OVERDUE', 'Draft': 'PENDING'
             };
