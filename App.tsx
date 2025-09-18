@@ -319,6 +319,12 @@ const App: React.FC = () => {
   const [editingSpd, setEditingSpd] = useState<PaymentOverviewInvoice | null>(null);
   const [previewingSpdDocs, setPreviewingSpdDocs] = useState<PaymentOverviewInvoice[] | null>(null);
 
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+  }, [theme]);
+
   const uniqueSalesPersons = useMemo(() => [...new Set(sales.map(s => s.salesPerson).filter(Boolean))], [sales]);
 
   const handleLogin = () => {
@@ -1314,7 +1320,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`flex h-screen font-sans ${theme}`}>
+    <div className={`flex h-screen font-sans`}>
       <Sidebar 
         activeView={activeView} 
         setActiveView={setActiveView} 
