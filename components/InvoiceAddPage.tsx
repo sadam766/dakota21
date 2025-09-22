@@ -70,6 +70,7 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
     clearPreviewData
 }) => {
     
+    const DRAFT_KEY = 'invoiceDraft';
     const [invoice, setInvoice] = useState<PaymentOverviewInvoice>(newInvoiceTemplate);
     const [items, setItems] = useState<InvoiceItem[]>([{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
     
@@ -95,53 +96,85 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
     const [pelunasanPercentage, setPelunasanPercentage] = useState(0);
     const [pelunasanValue, setPelunasanValue] = useState(0);
     
+    // Effect to automatically save form progress to localStorage
+    useEffect(() => {
+        // Avoid saving the initial blank state over a potentially valid draft
+        if (invoice.id && (invoice.client || items.some(i => i.item) || soSearchTerm)) {
+            const draftData = {
+                invoice, items, customerSearchTerm, soSearchTerm,
+                negotiationValue, dpValue, dpPercentage, pelunasanValue, pelunasanPercentage
+            };
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+        }
+    }, [invoice, items, customerSearchTerm, soSearchTerm, negotiationValue, dpValue, dpPercentage, pelunasanValue, pelunasanPercentage]);
+
+
     // Effect to initialize or restore state
     useEffect(() => {
-        // Priority 1: Restore from preview data if it exists
+        const savedDraftRaw = localStorage.getItem(DRAFT_KEY);
+        let savedDraft = null;
+        if (savedDraftRaw) {
+            try { savedDraft = JSON.parse(savedDraftRaw); }
+            catch (e) { console.error("Failed to parse invoice draft", e); localStorage.removeItem(DRAFT_KEY); }
+        }
+
+        const loadDraft = (draft: any) => {
+            setInvoice(draft.invoice);
+            setItems(draft.items);
+            setCustomerSearchTerm(draft.customerSearchTerm || draft.invoice.client);
+            setSoSearchTerm(draft.soSearchTerm || draft.invoice.soNumber || '');
+            setNegotiationValue(draft.negotiationValue || 0);
+            setDpPercentage(draft.dpPercentage || 0);
+            setDpValue(draft.dpValue || 0);
+            setPelunasanPercentage(draft.pelunasanPercentage || 0);
+            setPelunasanValue(draft.pelunasanValue || 0);
+        };
+        
+        // Priority 1: Restore from preview data (user is coming back from preview)
         if (previewData) {
-            setInvoice(previewData.invoice);
-            setItems(previewData.items);
-            setCustomerSearchTerm(previewData.invoice.client);
-            setSoSearchTerm(previewData.invoice.soNumber || '');
-            setNegotiationValue(previewData.negotiationValue || 0);
-            setDpPercentage(previewData.dpPercentage || 0);
-            setDpValue(previewData.dpValue || 0);
-            setPelunasanPercentage(previewData.pelunasanPercentage || 0);
-            setPelunasanValue(previewData.pelunasanValue || 0);
-            clearPreviewData(); // Clear the preview data after restoring
-        } 
-        // Priority 2: Load data for an existing invoice to be edited
-        else if (invoiceToEdit) {
-            setInvoice(invoiceToEdit);
-            setCustomerSearchTerm(invoiceToEdit.client);
-            setSoSearchTerm(invoiceToEdit.soNumber || '');
-            const soItems = salesOrders.filter(so => so.soNumber === invoiceToEdit.soNumber);
-            const newItems = soItems.map((item, i) => ({
-                id: Date.now() + i,
-                item: item.name,
-                quantity: item.quantity,
-                unit: item.satuan,
-                price: item.price
-            }));
-            setItems(newItems.length ? newItems : [{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
-             // Reset calculation fields when starting a new edit session
-            setNegotiationValue(0);
-            setDpPercentage(0);
-            setDpValue(0);
-            setPelunasanPercentage(0);
-            setPelunasanValue(0);
-        } 
-        // Priority 3: Start a new, blank invoice
-        else {
-            setInvoice(newInvoiceTemplate);
-            setItems([{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
-            setCustomerSearchTerm('');
-            setSoSearchTerm('');
-            setNegotiationValue(0);
-            setDpPercentage(0);
-            setDpValue(0);
-            setPelunasanPercentage(0);
-            setPelunasanValue(0);
+            loadDraft(previewData);
+            clearPreviewData();
+            return;
+        }
+
+        // Determine context: editing a specific invoice or creating a new one
+        const targetId = invoiceToEdit ? invoiceToEdit.id : 'new';
+        let draftMatchesContext = false;
+        if (savedDraft) {
+            const draftId = savedDraft.invoice?.id || '';
+            if (targetId.startsWith('new') && draftId.startsWith('new')) {
+                draftMatchesContext = true;
+            } else if (targetId !== 'new' && targetId === draftId) {
+                draftMatchesContext = true;
+            }
+        }
+
+        // Priority 2: Restore from a matching draft in localStorage
+        if (draftMatchesContext) {
+            loadDraft(savedDraft);
+        } else {
+        // Priority 3: No matching draft, so initialize based on props
+            if (invoiceToEdit) { // Load data for an existing invoice
+                setInvoice(invoiceToEdit);
+                setCustomerSearchTerm(invoiceToEdit.client);
+                setSoSearchTerm(invoiceToEdit.soNumber || '');
+                const soItems = salesOrders.filter(so => so.soNumber === invoiceToEdit.soNumber);
+                const newItems = soItems.map((item, i) => ({
+                    id: Date.now() + i,
+                    item: item.name,
+                    quantity: item.quantity,
+                    unit: item.satuan,
+                    price: item.price
+                }));
+                setItems(newItems.length ? newItems : [{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
+                // Reset calculation fields for a clean edit session
+                setNegotiationValue(0); setDpPercentage(0); setDpValue(0); setPelunasanPercentage(0); setPelunasanValue(0);
+            } else { // Start a new, blank invoice
+                setInvoice(newInvoiceTemplate);
+                setItems([{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
+                setCustomerSearchTerm(''); setSoSearchTerm(''); setNegotiationValue(0);
+                setDpPercentage(0); setDpValue(0); setPelunasanPercentage(0); setPelunasanValue(0);
+            }
         }
     }, [invoiceToEdit, previewData, salesOrders, clearPreviewData]);
 
@@ -319,6 +352,7 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
             amount: totalRp,
         };
         onSave(finalInvoiceData, items);
+        localStorage.removeItem(DRAFT_KEY);
         setActiveView('invoice-list');
     };
     
@@ -340,6 +374,7 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
 
     const handleBack = () => {
         setEditingInvoice(null);
+        localStorage.removeItem(DRAFT_KEY);
         setActiveView('invoice-list');
     };
 
