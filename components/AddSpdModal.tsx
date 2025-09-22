@@ -1,7 +1,7 @@
 
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { PaymentOverviewInvoice, ConsumerType, SalesType } from '../types';
+import type { PaymentOverviewInvoice, ConsumerType, SalesType, TaxInvoiceType } from '../types';
 import { XIcon } from './icons';
 
 interface AddSpdModalProps {
@@ -14,10 +14,11 @@ interface AddSpdModalProps {
   spdToEdit: PaymentOverviewInvoice | null;
   sales: SalesType[];
   allInvoices: PaymentOverviewInvoice[];
+  taxInvoices: TaxInvoiceType[];
   spds: PaymentOverviewInvoice[];
 }
 
-const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch, onSaveSingle, consumers, invoicesForCreation = [], spdToEdit, sales, allInvoices, spds }) => {
+const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch, onSaveSingle, consumers, invoicesForCreation = [], spdToEdit, sales, allInvoices, taxInvoices, spds }) => {
   const [formData, setFormData] = useState<Partial<PaymentOverviewInvoice>>({});
   const mode = spdToEdit ? 'edit' : 'create';
 
@@ -88,6 +89,25 @@ const AddSpdModal: React.FC<AddSpdModalProps> = ({ isOpen, onClose, onSaveBatch,
       }
     }
   }, [isOpen, spdToEdit, invoicesForCreation, nextSpdNumberInfo, sales]);
+  
+  // Effect to auto-populate tax invoice number
+  useEffect(() => {
+    if (mode === 'edit' && formData.invoiceNumber && taxInvoices.length > 0) {
+      const currentInvoiceNumber = (formData.invoiceNumber || '').trim();
+
+      const matchingTaxInvoice = taxInvoices.find(
+        (ti) => (ti.referensi || '').trim() === currentInvoiceNumber
+      );
+      
+      if (matchingTaxInvoice && formData.noFakturPajak !== matchingTaxInvoice.nomorFaktur) {
+        setFormData((prev) => ({
+          ...prev,
+          noFakturPajak: matchingTaxInvoice.nomorFaktur,
+        }));
+      }
+    }
+  }, [mode, formData.invoiceNumber, taxInvoices, formData.noFakturPajak]);
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

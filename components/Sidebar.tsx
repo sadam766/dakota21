@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { NavItemType } from '../types';
-import { DashboardIcon, ProductIcon, OrderIcon, CalendarIcon, InvoiceIcon, SettingsIcon, UserIcon, ChevronDownIcon, ChevronLeftIcon, TaxIcon } from './icons';
+import { DashboardIcon, ProductIcon, OrderIcon, CalendarIcon, InvoiceIcon, SettingsIcon, UserIcon, ChevronDownIcon, ChevronLeftIcon, TaxIcon, EyeIcon } from './icons';
 
 const navItems: NavItemType[] = [
     { id: 'dashboard', name: 'Dashboard', icon: <DashboardIcon className="w-6 h-6" /> },
@@ -39,6 +39,7 @@ const navItems: NavItemType[] = [
         ]
     },
     { id: 'orders/detail', name: 'Sales Management', icon: <SettingsIcon className="w-6 h-6" /> },
+    { id: 'monitoring', name: 'Monitoring', icon: <EyeIcon className="w-6 h-6" /> },
     { id: 'calendar', name: 'Calendar', icon: <CalendarIcon className="w-6 h-6" /> },
     { id: 'settings', name: 'Settings', icon: <SettingsIcon className="w-6 h-6" /> },
 ];
@@ -65,6 +66,7 @@ const translations = {
         'orders/list': 'Sales List',
         'orders/add': 'Add Sale',
         'orders/detail': 'Sales Management',
+        monitoring: 'Monitoring',
         settings: 'Settings',
         dakota: 'Dakota',
     },
@@ -88,6 +90,7 @@ const translations = {
         'orders/list': 'Daftar Penjualan',
         'orders/add': 'Tambah Penjualan',
         'orders/detail': 'Manajemen Penjualan',
+        monitoring: 'Monitoring',
         settings: 'Pengaturan',
         dakota: 'Dakota',
     }
