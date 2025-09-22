@@ -6,6 +6,7 @@ import { DashboardIcon, ProductIcon, OrderIcon, CalendarIcon, InvoiceIcon, Setti
 
 const navItems: NavItemType[] = [
     { id: 'dashboard', name: 'Dashboard', icon: <DashboardIcon className="w-6 h-6" /> },
+    { id: 'monitoring', name: 'Monitoring', icon: <EyeIcon className="w-6 h-6" /> },
     {
         id: 'invoices', name: 'Invoices', icon: <InvoiceIcon className="w-6 h-6" />,
         subItems: [
@@ -39,7 +40,6 @@ const navItems: NavItemType[] = [
         ]
     },
     { id: 'orders/detail', name: 'Sales Management', icon: <SettingsIcon className="w-6 h-6" /> },
-    { id: 'monitoring', name: 'Monitoring', icon: <EyeIcon className="w-6 h-6" /> },
     { id: 'calendar', name: 'Calendar', icon: <CalendarIcon className="w-6 h-6" /> },
     { id: 'settings', name: 'Settings', icon: <SettingsIcon className="w-6 h-6" /> },
 ];

@@ -867,14 +867,15 @@ const handleSaveInvoice = async (invoiceData: PaymentOverviewInvoice, items: Inv
             }
         } else {
             const tempId = `inv-num-${Date.now()}`;
+            // FIX: The `billToAddress` property was potentially being assigned `undefined`, which caused a type error.
+            // By using the nullish coalescing operator `??` and providing a fallback `''`, we ensure it's always a string, satisfying the inferred type.
             const optimisticInvoice: PaymentOverviewInvoice = {
                 id: tempId,
                 status: 'Draft',
                 ...invoiceData,
-                // FIX: `client` is required in `PaymentOverviewInvoice` but optional in `invoiceData` due to `Partial` type. Asserting it exists because it's a required field in the form.
                 client: invoiceData.client!,
                 number: 'Generating...',
-                billToAddress: consumers.find(c => c.name === invoiceData.client!)?.alamat || invoiceData.billToAddress || '',
+                billToAddress: consumers.find(c => c.name === (invoiceData.client ?? ''))?.alamat ?? (invoiceData.billToAddress ?? ''),
                 createdBy: 'System (Nomor Faktur)',
                 date: invoiceData.date!,
                 amount: invoiceData.amount!,
