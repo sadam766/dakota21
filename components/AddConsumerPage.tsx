@@ -18,24 +18,50 @@ const AddConsumerPage: React.FC<AddConsumerPageProps> = ({ setActiveView, onAddC
   const [alamatSpd, setAlamatSpd] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const DRAFT_KEY = 'customerFormDraft';
 
   useEffect(() => {
     if (consumerToEdit) {
-        setIsEditing(true);
-        setName(consumerToEdit.name);
-        setAlamat(consumerToEdit.alamat);
-        setAlamatSpd(consumerToEdit.alamatSpd);
+      setIsEditing(true);
+      setName(consumerToEdit.name);
+      setAlamat(consumerToEdit.alamat);
+      setAlamatSpd(consumerToEdit.alamatSpd);
+      localStorage.removeItem(DRAFT_KEY);
     } else {
-        setIsEditing(false);
+      setIsEditing(false);
+      const savedDraftRaw = localStorage.getItem(DRAFT_KEY);
+      if (savedDraftRaw) {
+        try {
+          const savedDraft = JSON.parse(savedDraftRaw);
+          setName(savedDraft.name || '');
+          setAlamat(savedDraft.alamat || '');
+          setAlamatSpd(savedDraft.alamatSpd || '');
+        } catch (e) {
+          console.error("Failed to parse customer draft", e);
+          localStorage.removeItem(DRAFT_KEY);
+          setName('');
+          setAlamat('');
+          setAlamatSpd('');
+        }
+      } else {
         setName('');
         setAlamat('');
         setAlamatSpd('');
+      }
     }
   }, [consumerToEdit]);
 
+  useEffect(() => {
+    if (!isEditing) {
+      const draft = { name, alamat, alamatSpd };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    }
+  }, [name, alamat, alamatSpd, isEditing]);
+
+
   const handleCancel = () => {
     setEditingConsumer(null);
+    localStorage.removeItem(DRAFT_KEY);
     setActiveView('consumers');
   };
 
@@ -55,6 +81,7 @@ const AddConsumerPage: React.FC<AddConsumerPageProps> = ({ setActiveView, onAddC
             onAddConsumer({ name, alamat, alamatSpd });
             alert(`Customer "${name}" has been added.`);
         }
+        localStorage.removeItem(DRAFT_KEY);
         setActiveView('consumers');
     } catch (error) {
         alert('An error occurred. Please try again.');

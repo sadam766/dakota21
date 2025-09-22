@@ -31,7 +31,7 @@ const SpdPreviewPage: React.FC<SpdPreviewPageProps> = ({ spdDocs, consumers, set
 
   const mainSpd = spdDocs[0];
   const customer = consumers.find(c => c.name === mainSpd.client);
-  const customerAddress = customer ? customer.alamatSpd.split('\n') : ['Alamat tidak ditemukan'];
+  const customerAddress = (customer && customer.alamatSpd) ? customer.alamatSpd.split('\n') : ['Alamat SPD tidak tersedia'];
 
   const spdNumberMatch = mainSpd.number?.match(/^PS\/(\d+)(.*)$/);
   const spdNumberMain = spdNumberMatch ? spdNumberMatch[1] : mainSpd.number;
