@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { SalesType, DocumentType, TaxInvoiceType, PaymentOverviewInvoice } from '../types';
 import {
@@ -17,6 +20,32 @@ import {
 import DocumentFormModal from './DocumentFormModal';
 import PaginationControls from './PaginationControls';
 
+// Helper function to find all invoices related to a sale via SO or PO number
+const getRelevantInvoices = (sale: SalesType | null, allInvoices: PaymentOverviewInvoice[]): PaymentOverviewInvoice[] => {
+    if (!sale || !allInvoices) return [];
+    
+    const soNumber = sale.soNumber?.trim();
+    const poNumber = sale.poNumber?.trim();
+
+    // If both SO and PO are missing on the sale, can't find related invoices.
+    if (!soNumber && !poNumber) {
+        return [];
+    }
+    
+    return allInvoices.filter(inv => {
+        const invSoNumber = inv.soNumber?.trim();
+        const invPoNumber = inv.poNumber?.trim();
+        
+        // Match if the invoice's SO matches the sale's SO (if both exist)
+        const soMatch = soNumber && invSoNumber && soNumber === invSoNumber;
+        // Match if the invoice's PO matches the sale's PO (if both exist)
+        const poMatch = poNumber && invPoNumber && poNumber === invPoNumber;
+
+        return soMatch || poMatch;
+    });
+};
+
+
 // New Sub-components to build the page
 
 const TaxStatusBadge: React.FC<{ status: TaxInvoiceType['statusFaktur'] | undefined }> = ({ status }) => {
@@ -30,7 +59,7 @@ const TaxStatusBadge: React.FC<{ status: TaxInvoiceType['statusFaktur'] | undefi
 
 
 // Card for each document in the grid
-const DocumentCard: React.FC<{ doc: DocumentType, formatIDR: (val: number) => string }> = ({ doc, formatIDR }) => {
+const DocumentCard: React.FC<{ doc: DocumentType, formatIDR: (val: number) => string, customer: string, salesPerson: string }> = ({ doc, formatIDR, customer, salesPerson }) => {
   const statusClasses: {[key in DocumentType['status']]: string} = {
     PAID: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
     PENDING: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
@@ -41,8 +70,27 @@ const DocumentCard: React.FC<{ doc: DocumentType, formatIDR: (val: number) => st
   return (
     <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 flex flex-col space-y-3 shadow-sm hover:shadow-lg dark:hover:shadow-slate-900/50 transition-shadow duration-300 h-full">
       <div className="flex justify-between items-start">
-        <h4 className="font-bold text-gray-800 dark:text-gray-100 pr-2">{doc.proformaInvoiceNumber}</h4>
+        <div className="grid grid-cols-2 gap-x-4">
+            <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">NO. SO</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-100">{doc.soNumber || '-'}</p>
+            </div>
+            <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">NO. PO</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-100">{doc.poNumber || '-'}</p>
+            </div>
+        </div>
         {/* Action button is now handled by the parent component */}
+      </div>
+      <div className="grid grid-cols-2 gap-x-4">
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Customer</p>
+          <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate" title={customer}>{customer}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Sales</p>
+          <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate" title={salesPerson}>{salesPerson}</p>
+        </div>
       </div>
       <div>
         <span className={`px-2.5 py-1 text-xs font-semibold rounded-md ${statusClasses[doc.status]}`}>{doc.status}</span>
@@ -91,23 +139,26 @@ const DocumentCard: React.FC<{ doc: DocumentType, formatIDR: (val: number) => st
 const SummaryStat: React.FC<{
   title: string;
   count: number;
-  stats: Array<{ label: string; value: string; color: string; count: number }>;
-}> = ({ title, count, stats }) => (
+  mainValue?: string;
+  stats: Array<{ label: string; value?: string; color: string; count: number }>;
+}> = ({ title, count, mainValue, stats }) => (
   <div className="flex-1">
     <div className="flex items-center space-x-2">
       <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300">{title}</h3>
       <span className="text-xs font-bold text-gray-500 bg-gray-200 dark:bg-slate-700 dark:text-gray-300 px-2 py-0.5 rounded-full">{count}</span>
     </div>
-    <div className="flex items-baseline space-x-4 mt-3">
-      {stats.map((stat, index) => (
-        <div key={index}>
-          <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{stat.value}</p>
-          <div className="flex items-center mt-1">
-            <span className={`w-2 h-2 rounded-full ${stat.color} mr-1.5`}></span>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label} ({stat.count})</p>
-          </div>
+    <div className="mt-3">
+        {mainValue && <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{mainValue}</p>}
+        <div className={`flex items-baseline ${!mainValue ? 'space-x-4' : ''}`}>
+            {stats.map((stat, index) => (
+              <div key={index} className="flex items-center">
+                <span className={`w-2 h-2 rounded-full ${stat.color} mr-1.5`}></span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {stat.label} {stat.value && <span className="font-semibold text-gray-700 dark:text-gray-300">{stat.value}</span>} ({stat.count})
+                </p>
+              </div>
+            ))}
         </div>
-      ))}
     </div>
   </div>
 );
@@ -124,7 +175,7 @@ const StatusBadge: React.FC<{ status: DocumentType['status'] }> = ({ status }) =
     return <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusClasses[status]}`}>{status}</span>;
 }
 
-type SortableKeys = keyof DocumentType | 'proformaInvoiceNumber';
+type SortableKeys = keyof DocumentType;
 
 interface SalesManagementPageProps {
   sales: SalesType[];
@@ -215,13 +266,7 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
         }
     });
     
-    const hasPoNumber = selectedSale.poNumber && selectedSale.poNumber.trim() !== '';
-
-    // If the selected sale has a PO number, filter all invoices by that PO number.
-    // Otherwise, fall back to filtering by SO number.
-    const relevantInvoices = hasPoNumber
-      ? invoices.filter(inv => inv.poNumber === selectedSale.poNumber)
-      : invoices.filter(inv => inv.soNumber === selectedSale.soNumber);
+    const relevantInvoices = getRelevantInvoices(selectedSale, invoices);
 
 
     return relevantInvoices.map(inv => {
@@ -237,6 +282,7 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
             return {
                 id: inv.id,
                 soNumber: inv.soNumber,
+                poNumber: inv.poNumber,
                 proformaInvoiceNumber: `${inv.soNumber || 'PI'} / ${inv.client}`,
                 invoiceNumber: inv.number,
                 invoiceValue: inv.amount,
@@ -265,7 +311,8 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
 
     let filtered = [...documentsWithData].filter(doc => {
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearch = doc.proformaInvoiceNumber.toLowerCase().includes(searchTermLower) ||
+      const matchesSearch = (doc.soNumber || '').toLowerCase().includes(searchTermLower) ||
+          (doc.poNumber || '').toLowerCase().includes(searchTermLower) ||
           doc.invoiceNumber.toLowerCase().includes(searchTermLower) ||
           String(doc.invoiceValue).includes(searchTermLower) ||
           doc.invoiceDate.toLowerCase().includes(searchTermLower) ||
@@ -370,128 +417,66 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
 
   const formatIDR = (value: number) => value.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
   const formatIDRK = (value: number) => `Rp${(value / 1000000).toFixed(1)}jt`;
-
-  const invoiceStats = useMemo(() => {
-    if (!selectedSale) {
-        return {
-            totalCount: 0,
-            stats: []
-        };
-    }
-    const saleInvoices = invoices.filter(inv => inv.soNumber === selectedSale.soNumber);
-
-    const paidInvoices = saleInvoices.filter(i => i.status === 'Paid');
-    const pendingInvoices = saleInvoices.filter(i => i.status === 'Pending');
-    const overdueInvoices = saleInvoices.filter(i => i.status === 'Overdue');
-    const draftInvoices = saleInvoices.filter(i => i.status === 'Draft');
-    const unpaidInvoices = saleInvoices.filter(i => i.status === 'Unpaid');
-
-    const sumAmount = (invs: PaymentOverviewInvoice[]) => invs.reduce((sum, i) => sum + i.amount, 0);
-
-    const stats = [];
-    if (paidInvoices.length > 0) {
-        stats.push({
-            label: 'PAID',
-            value: formatIDRK(sumAmount(paidInvoices)),
-            color: 'bg-green-500',
-            count: paidInvoices.length
-        });
-    }
-    if (pendingInvoices.length > 0) {
-        stats.push({
-            label: 'PENDING',
-            value: formatIDRK(sumAmount(pendingInvoices)),
-            color: 'bg-yellow-500',
-            count: pendingInvoices.length
-        });
-    }
-    if (overdueInvoices.length > 0) {
-        stats.push({
-            label: 'OVERDUE',
-            value: formatIDRK(sumAmount(overdueInvoices)),
-            color: 'bg-red-500',
-            count: overdueInvoices.length
-        });
-    }
-    if (draftInvoices.length > 0) {
-        stats.push({
-            label: 'DRAFT',
-            value: formatIDRK(sumAmount(draftInvoices)),
-            color: 'bg-gray-400',
-            count: draftInvoices.length
-        });
-    }
-    if (unpaidInvoices.length > 0) {
-      stats.push({
-          label: 'UNPAID',
-          value: formatIDRK(sumAmount(unpaidInvoices)),
-          color: 'bg-pink-500',
-          count: unpaidInvoices.length
-      });
-    }
-
-    return {
-        totalCount: saleInvoices.length,
-        stats: stats
-    };
-  }, [invoices, selectedSale]);
-
-  const customerSales = useMemo(() => {
-    if (!selectedSale || !sales) return [];
-    return sales.filter(s => s.customer === selectedSale.customer);
-  }, [selectedSale, sales]);
-
-  const calculateSummaryStats = (salesData: SalesType[]) => {
-    if (salesData.length === 0) {
-      return { totalCount: 0, stats: [] };
-    }
-
-    const sumAmount = (arr: SalesType[]) => arr.reduce((sum, s) => sum + s.amount, 0);
-    
-    const statsMap: {[key in SalesType['status']]?: { label: string, color: string, data: SalesType[] }} = {
-        'Paid': { label: 'ACCEPTED', color: 'bg-green-500', data: [] },
-        'Pending': { label: 'PENDING', color: 'bg-yellow-500', data: [] },
-        'Unpaid': { label: 'PENDING', color: 'bg-yellow-500', data: [] },
-        'Overdue': { label: 'OVERDUE', color: 'bg-red-500', data: [] },
-        'Draft': { label: 'PENDING', color: 'bg-yellow-500', data: [] },
-    };
-
-    salesData.forEach(sale => {
-        if(statsMap[sale.status]) {
-            statsMap[sale.status]!.data.push(sale);
-        }
-    });
-
-    const consolidatedStats: {[label: string]: { color: string, data: SalesType[] }} = {};
-    Object.values(statsMap).forEach(statInfo => {
-        if (statInfo && statInfo.data.length > 0) {
-            if (!consolidatedStats[statInfo.label]) {
-                consolidatedStats[statInfo.label] = { color: statInfo.color, data: [] };
-            }
-            consolidatedStats[statInfo.label].data.push(...statInfo.data);
-        }
-    });
-
-    const finalStats = Object.entries(consolidatedStats).map(([label, { color, data }]) => ({
-        label: label,
-        value: formatIDRK(sumAmount(data)),
-        color: color,
-        count: data.length
-    }));
-
-    return {
-        totalCount: salesData.length,
-        stats: finalStats
-    };
-  };
   
-  const estimateStats = useMemo(() => calculateSummaryStats(customerSales), [customerSales]);
+  const estimateStats = useMemo(() => {
+    if (!selectedSale) return { totalCount: 0, mainValue: formatIDRK(0), stats: [] };
+    
+    const relevantInvoices = getRelevantInvoices(selectedSale, invoices);
+    const paidAmount = relevantInvoices.filter(i => i.status === 'Paid').reduce((sum, i) => sum + i.amount, 0);
+    const outstandingAmount = selectedSale.amount - paidAmount;
+    
+    let statLabel = 'OUTSTANDING';
+    let statColor = 'bg-yellow-500';
+    if (outstandingAmount <= 0 && selectedSale.amount > 0) {
+        statLabel = 'FULLY PAID';
+        statColor = 'bg-green-500';
+    }
+
+    return {
+        totalCount: 1,
+        mainValue: formatIDRK(selectedSale.amount),
+        stats: [{
+            label: statLabel,
+            color: statColor,
+            count: relevantInvoices.filter(i => ['Pending', 'Unpaid', 'Overdue', 'Draft'].includes(i.status)).length
+        }]
+    };
+  }, [selectedSale, invoices]);
   
   const changeOrderStats = useMemo(() => {
-      const changeOrders = customerSales.filter((_, index) => index % 4 === 1);
-      return calculateSummaryStats(changeOrders);
-  }, [customerSales]);
-
+    if (!selectedSale) return { totalCount: 0, mainValue: formatIDRK(0), stats: [] };
+    
+    const relevantInvoices = getRelevantInvoices(selectedSale, invoices);
+    const paidInvoices = relevantInvoices.filter(i => i.status === 'Paid');
+    const totalPaidAmount = paidInvoices.reduce((sum, i) => sum + i.amount, 0);
+    
+    return {
+        totalCount: paidInvoices.length,
+        mainValue: formatIDRK(totalPaidAmount),
+        stats: [{
+            label: 'TOTAL PAID',
+            color: 'bg-green-500',
+            count: paidInvoices.length
+        }]
+    };
+  }, [selectedSale, invoices]);
+  
+  const invoiceStats = useMemo(() => {
+    if (!selectedSale) return { totalCount: 0, mainValue: formatIDRK(0), stats: [] };
+    
+    const relevantInvoices = getRelevantInvoices(selectedSale, invoices);
+    const totalInvoicedAmount = relevantInvoices.reduce((sum, i) => sum + i.amount, 0);
+    
+    return {
+        totalCount: relevantInvoices.length,
+        mainValue: formatIDRK(totalInvoicedAmount),
+        stats: [{
+            label: 'INVOICED',
+            color: 'bg-blue-500',
+            count: relevantInvoices.length
+        }]
+    };
+  }, [selectedSale, invoices]);
 
   if (!selectedSale) {
     return (
@@ -585,18 +570,21 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
            <SummaryStat 
             title="Total Estimates"
             count={estimateStats.totalCount}
+            mainValue={estimateStats.mainValue}
             stats={estimateStats.stats}
           />
           <div className="border-l border-gray-200 dark:border-slate-700 h-auto md:h-16 self-stretch"></div>
            <SummaryStat 
             title="Change Orders"
             count={changeOrderStats.totalCount}
+            mainValue={changeOrderStats.mainValue}
             stats={changeOrderStats.stats}
           />
           <div className="border-l border-gray-200 dark:border-slate-700 h-auto md:h-16 self-stretch"></div>
           <SummaryStat 
             title="Invoices"
             count={invoiceStats.totalCount}
+            mainValue={invoiceStats.mainValue}
             stats={invoiceStats.stats}
           />
         </div>
@@ -624,7 +612,8 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
                 </button>
                 {isSortDropdownOpen && (
                     <div className="absolute top-full right-0 mt-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-10 w-48">
-                        <button onClick={() => handleSort('proformaInvoiceNumber')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700">Name</button>
+                        <button onClick={() => handleSort('soNumber')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700">NO. SO</button>
+                        <button onClick={() => handleSort('poNumber')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700">NO. PO</button>
                         <button onClick={() => handleSort('invoiceDate')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700">Invoice Date</button>
                         <button onClick={() => handleSort('invoiceValue')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700">Invoice Value</button>
                         <button onClick={() => handleSort('status')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700">Status</button>
@@ -650,7 +639,7 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {paginatedData.currentItems.map(doc => (
                 <div key={doc.id} className="relative">
-                    <DocumentCard doc={doc} formatIDR={formatIDR} />
+                    <DocumentCard doc={doc} formatIDR={formatIDR} customer={selectedSale.customer} salesPerson={selectedSale.salesPerson} />
                     <div className="absolute top-2 right-2">
                         <button className="text-gray-400 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-2 rounded-full" onClick={() => setOpenMenuId(openMenuId === doc.id ? null : doc.id)}>
                             <MoreVerticalIcon className="w-5 h-5" />
@@ -676,11 +665,12 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
         )}
          {viewMode === 'list' && (
             <div className="overflow-x-auto">
-                <table className="w-full min-w-[2200px] text-sm text-left">
+                <table className="w-full min-w-[2400px] text-sm text-left">
                     <thead className="bg-gray-50 dark:bg-slate-700/50 text-gray-500 dark:text-gray-400 uppercase text-xs">
                         <tr>
                             <th className="p-4 w-12 text-center"><input type="checkbox" onChange={handleSelectAll} checked={filteredAndSortedDocuments.length > 0 && selectedRows.size === filteredAndSortedDocuments.length} className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 bg-gray-100 dark:bg-slate-900 text-indigo-600 focus:ring-indigo-500" /></th>
-                            <TableHeader sortKey="proformaInvoiceNumber" label="No. PROFORMA INVOICE" />
+                            <TableHeader sortKey="soNumber" label="NO. SO" />
+                            <TableHeader sortKey="poNumber" label="NO. PO" />
                             <TableHeader sortKey="invoiceNumber" label="NO. INVOICE" />
                             <TableHeader sortKey="invoiceValue" label="NILAI INVOICE" className="text-right" />
                             <TableHeader sortKey="invoiceDate" label="TANGGAL INVOICE" />
@@ -697,7 +687,8 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
                         {paginatedData.currentItems.map((doc) => (
                             <tr key={doc.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
                                 <td className="p-4 w-12 text-center"><input type="checkbox" onChange={() => handleSelectRow(doc.id)} checked={selectedRows.has(doc.id)} className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 bg-gray-100 dark:bg-slate-900 text-indigo-600 focus:ring-indigo-500" /></td>
-                                <td className="p-3 text-gray-700 dark:text-gray-100 font-semibold">{doc.proformaInvoiceNumber}</td>
+                                <td className="p-3 text-gray-700 dark:text-gray-300">{doc.soNumber || '-'}</td>
+                                <td className="p-3 text-gray-700 dark:text-gray-300">{doc.poNumber || '-'}</td>
                                 <td className="p-3 text-gray-700 dark:text-gray-300">{doc.invoiceNumber}</td>
                                 <td className="p-3 text-gray-800 dark:text-gray-200 font-medium text-right">{formatIDR(doc.invoiceValue)}</td>
                                 <td className="p-3 text-gray-700 dark:text-gray-300">{doc.invoiceDate}</td>

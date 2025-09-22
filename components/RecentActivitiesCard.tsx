@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import type { ActivityType } from '../types';
 import { CalendarIcon, OrderIcon, InvoiceIcon, ProductIcon } from './icons';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec";
-
 type FetchedActivity = {
     icon: string;
     text: string;

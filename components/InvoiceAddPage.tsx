@@ -70,8 +70,8 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
     clearPreviewData
 }) => {
     
-    const [invoice, setInvoice] = useState<PaymentOverviewInvoice>(invoiceToEdit || newInvoiceTemplate);
-    const [items, setItems] = useState<InvoiceItem[]>([]);
+    const [invoice, setInvoice] = useState<PaymentOverviewInvoice>(newInvoiceTemplate);
+    const [items, setItems] = useState<InvoiceItem[]>([{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
     
     const [customerSearchTerm, setCustomerSearchTerm] = useState('');
     const [filteredCustomers, setFilteredCustomers] = useState<ConsumerType[]>([]);
@@ -94,11 +94,11 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
     const [dpValue, setDpValue] = useState(0);
     const [pelunasanPercentage, setPelunasanPercentage] = useState(0);
     const [pelunasanValue, setPelunasanValue] = useState(0);
-
+    
+    // Effect to initialize or restore state
     useEffect(() => {
-        const fallbackItem = [{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }];
+        // Priority 1: Restore from preview data if it exists
         if (previewData) {
-            // State is being restored from the preview page
             setInvoice(previewData.invoice);
             setItems(previewData.items);
             setCustomerSearchTerm(previewData.invoice.client);
@@ -108,10 +108,10 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
             setDpValue(previewData.dpValue || 0);
             setPelunasanPercentage(previewData.pelunasanPercentage || 0);
             setPelunasanValue(previewData.pelunasanValue || 0);
-            // Clear the preview data in App.tsx to prevent re-using it
-            clearPreviewData();
-        } else if (invoiceToEdit) {
-            // Standard edit flow
+            clearPreviewData(); // Clear the preview data after restoring
+        } 
+        // Priority 2: Load data for an existing invoice to be edited
+        else if (invoiceToEdit) {
             setInvoice(invoiceToEdit);
             setCustomerSearchTerm(invoiceToEdit.client);
             setSoSearchTerm(invoiceToEdit.soNumber || '');
@@ -123,20 +123,20 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
                 unit: item.satuan,
                 price: item.price
             }));
-            setItems(newItems.length ? newItems : fallbackItem);
-            // Reset financial calculation values for a clean slate
+            setItems(newItems.length ? newItems : [{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
+             // Reset calculation fields when starting a new edit session
             setNegotiationValue(0);
             setDpPercentage(0);
             setDpValue(0);
             setPelunasanPercentage(0);
             setPelunasanValue(0);
-        } else {
-            // Standard create new flow
+        } 
+        // Priority 3: Start a new, blank invoice
+        else {
             setInvoice(newInvoiceTemplate);
-            setItems(fallbackItem);
+            setItems([{ id: 1, item: '', quantity: 1, unit: 'pcs', price: 0 }]);
             setCustomerSearchTerm('');
             setSoSearchTerm('');
-             // Reset financial calculation values for a clean slate
             setNegotiationValue(0);
             setDpPercentage(0);
             setDpValue(0);

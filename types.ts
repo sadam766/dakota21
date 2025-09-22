@@ -20,6 +20,7 @@ export interface StatCardType {
 export interface DocumentType {
   id: string;
   soNumber?: string;
+  poNumber?: string;
   proformaInvoiceNumber: string;
   invoiceNumber: string;
   invoiceValue: number;

@@ -1,6 +1,7 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { SalesType, PaymentOverviewInvoice } from '../types';
+import type { SalesType, DocumentType } from '../types';
 import { ExportIcon, FilterIcon, MoreVerticalIcon, PlusIcon, SearchIcon, SortIcon, PencilIcon, TrashIcon, ImportIcon, EyeIcon } from './icons';
 import PaymentOverview from './PaymentOverview';
 import PaginationControls from './PaginationControls';
@@ -39,6 +40,7 @@ const TableHeader = ({ label }: { label: string }) => (
 
 interface SalesPageProps {
     sales: SalesType[];
+    salesManagementDocs: DocumentType[];
     setActiveView: (view: string) => void;
     setSelectedSale: (sale: SalesType) => void;
     setEditingSale: (sale: SalesType | null) => void;
@@ -47,7 +49,7 @@ interface SalesPageProps {
 }
 
 // MAIN COMPONENT
-const SalesPage: React.FC<SalesPageProps> = ({ sales, setActiveView, setSelectedSale, setEditingSale, loading, error }) => {
+const SalesPage: React.FC<SalesPageProps> = ({ sales, salesManagementDocs, setActiveView, setSelectedSale, setEditingSale, loading, error }) => {
     const [activeTab, setActiveTab] = useState<keyof typeof tabCounts>('All Sales');
     const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
@@ -84,8 +86,22 @@ const SalesPage: React.FC<SalesPageProps> = ({ sales, setActiveView, setSelected
         setCurrentPage(1);
     }, [activeTab, searchTerm, filters]);
 
+    const enhancedSales = useMemo(() => {
+        return sales.map(sale => {
+            const doc = salesManagementDocs.find(d => d.id === sale.id);
+            const isPaid = doc && doc.paymentValue > 0 && doc.paymentValue >= sale.amount;
+            const calculatedStatus: SalesType['status'] = isPaid ? 'Paid' : 'Unpaid';
+            return {
+                ...sale,
+                status: calculatedStatus, // Override status with calculated one
+                paymentDate: isPaid ? doc?.paymentDate : undefined,
+            };
+        });
+    }, [sales, salesManagementDocs]);
+
+
     const filteredSales = useMemo(() => {
-      return sales
+      return enhancedSales
           .filter(sale => {
               if (activeTab === 'All Sales') return true;
               const saleStatus = activeTab.replace(' Sales', '');
@@ -121,7 +137,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ sales, setActiveView, setSelected
             }
             return true;
           });
-    }, [activeTab, searchTerm, sales, filters]);
+    }, [activeTab, searchTerm, enhancedSales, filters]);
     
     const paginatedData = useMemo(() => {
         const totalItems = filteredSales.length;
@@ -346,7 +362,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ sales, setActiveView, setSelected
                                         </td>
                                         <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{sale.poNumber}</td>
                                         <td className="p-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{sale.amount.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</td>
-                                        <td className="p-4 whitespace-nowrap"><StatusBadge status={sale.status} /></td>
+                                        <td className="p-4 whitespace-nowrap">
+                                            <StatusBadge status={sale.status} />
+                                            {sale.status === 'Paid' && sale.paymentDate && (
+                                                <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    on: {sale.paymentDate}
+                                                </span>
+                                            )}
+                                        </td>
                                         <td className="p-4 text-center">
                                             <div className="relative inline-block text-left" ref={openActionMenuId === sale.id ? actionMenuRef : null}>
                                                 <button onClick={() => setOpenActionMenuId(sale.id === openActionMenuId ? null : sale.id)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-label={`Actions for sale ${sale.soNumber}`}>

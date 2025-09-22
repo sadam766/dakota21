@@ -3,8 +3,6 @@ import type { ConsumerType } from '../types';
 import { ChevronDownIcon, ExportIcon, PlusIcon, ImportIcon, SearchIcon } from './icons';
 import PaginationControls from './PaginationControls';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec";
-
 declare const XLSX: any;
 
 interface ConsumerPageProps {

@@ -24,7 +24,7 @@ import InvoicePreviewPage from './components/InvoicePreviewPage.tsx';
 import LoginPage from './components/LoginPage.tsx';
 import AddSpdModal from './components/AddSpdModal.tsx';
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec';
+export const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec';
 
 const findValueByKey = (obj: any, targetKey: string): any => {
     if (!obj || typeof obj !== 'object') return undefined;
@@ -287,7 +287,67 @@ const mapSaleToSheetData = (sale: SalesType) => ({
     date: sale.date,
 });
 
+const mapDocumentToSalesManagementSheetData = (doc: DocumentType & { customer?: string, salesPerson?: string }) => ({
+    id: doc.id,
+    'NUMBER SO': doc.soNumber || '',
+    'CUSTOMER': doc.customer || '',
+    'SALES': doc.salesPerson || '',
+    'NO. PO': doc.poNumber || '',
+    'NO INVOICE': doc.invoiceNumber || '',
+    'NILAI INVOICE': doc.invoiceValue || 0,
+    'TANGGAL INVOICE': doc.invoiceDate || '',
+    'NO. FAKTUR PAJAK': doc.taxInvoiceNumber || '',
+    'TANGGAL FAKTUR PAJAK': doc.taxInvoiceDate || '',
+    'STATUS': doc.status || '',
+    'JATUH TEMPO INVOICE': doc.dueDate || '',
+    'NILAI PEMBAYARAN': doc.paymentValue || 0,
+    'TANGGAL PEMBAYARAN': doc.paymentDate || '',
+});
 
+const mapSheetDataToSalesManagementDocument = (sheetRow: any): DocumentType => ({
+    id: findValueByKey(sheetRow, 'id') || '',
+    soNumber: findValueByKey(sheetRow, 'NUMBER SO') || '',
+    poNumber: findValueByKey(sheetRow, 'NO. PO') || '',
+    invoiceNumber: findValueByKey(sheetRow, 'NO INVOICE') || '',
+    invoiceValue: Number(findValueByKey(sheetRow, 'NILAI INVOICE')) || 0,
+    invoiceDate: parseSheetDate(findValueByKey(sheetRow, 'TANGGAL INVOICE')),
+    taxInvoiceNumber: findValueByKey(sheetRow, 'NO. FAKTUR PAJAK') || '',
+    taxInvoiceDate: parseSheetDate(findValueByKey(sheetRow, 'TANGGAL FAKTUR PAJAK')),
+    status: (findValueByKey(sheetRow, 'STATUS') || 'PENDING') as DocumentType['status'],
+    dueDate: parseSheetDate(findValueByKey(sheetRow, 'JATUH TEMPO INVOICE')),
+    paymentValue: Number(findValueByKey(sheetRow, 'NILAI PEMBAYARAN')) || 0,
+    paymentDate: parseSheetDate(findValueByKey(sheetRow, 'TANGGAL PEMBAYARAN')),
+    proformaInvoiceNumber: '', // Not in sheet, default to empty
+});
+
+const saleToInitialDocument = (sale: SalesType): DocumentType => {
+    const statusMap: { [key in SalesType['status']]: DocumentType['status'] } = {
+        'Paid': 'PAID',
+        'Unpaid': 'UNPAID',
+        'Pending': 'PENDING',
+        'Overdue': 'OVERDUE',
+        'Draft': 'PENDING'
+    };
+
+    return {
+        id: sale.id,
+        soNumber: sale.soNumber,
+        poNumber: sale.poNumber,
+        proformaInvoiceNumber: '',
+        invoiceNumber: '',
+        invoiceValue: 0,
+        invoiceDate: '',
+        taxInvoiceNumber: '',
+        taxInvoiceDate: '',
+        status: statusMap[sale.status] || 'PENDING',
+        dueDate: '',
+        paymentValue: 0,
+        paymentDate: '',
+    };
+};
+
+
+// FIX: Corrected the component declaration to be a valid functional component.
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
@@ -309,6 +369,7 @@ const App: React.FC = () => {
   const [taxInvoices, setTaxInvoices] = useState<TaxInvoiceType[]>([]);
   const [sales, setSales] = useState<SalesType[]>([]);
   const [spdDocs, setSpdDocs] = useState<PaymentOverviewInvoice[]>([]);
+  const [salesManagementDocs, setSalesManagementDocs] = useState<DocumentType[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -324,8 +385,6 @@ const App: React.FC = () => {
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
   }, [theme]);
-
-  const uniqueSalesPersons = useMemo(() => [...new Set(sales.map(s => s.salesPerson).filter(Boolean))], [sales]);
 
   const handleLogin = () => {
     setIsAuthenticated(true);
@@ -354,6 +413,7 @@ const App: React.FC = () => {
             const taxInvoicesPromise = fetchData('TaxInvoices');
             const nomorFakturPromise = fetchData('NOMOR FAKTUR');
             const spdPromise = fetchData('NOMOR SPD');
+            const salesManagementPromise = fetchData('Sales Management');
 
             const salesPromise = fetchData('Sales').catch(error => {
                 console.error("Failed to fetch Sales data. The app will continue without it.", error);
@@ -373,7 +433,8 @@ const App: React.FC = () => {
                 taxInvoicesData, 
                 salesData, 
                 nomorFakturData, 
-                spdData
+                spdData,
+                salesManagementData
             ] = await Promise.all([
                 productsPromise,
                 salesOrdersPromise,
@@ -383,6 +444,7 @@ const App: React.FC = () => {
                 salesPromise,
                 nomorFakturPromise,
                 spdPromise,
+                salesManagementPromise,
             ]);
 
             const mappedInvoices = invoicesData.map(mapSheetDataToInvoice);
@@ -396,6 +458,8 @@ const App: React.FC = () => {
             setTaxInvoices(taxInvoicesData.map(mapSheetDataToTaxInvoice));
             setSales(salesData.map(mapSheetDataToSale));
             setSpdDocs(mappedSpds);
+            setSalesManagementDocs(salesManagementData.map(mapSheetDataToSalesManagementDocument));
+
 
         } catch (err: any) {
             setError(err.message);
@@ -525,93 +589,209 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddSale = async (saleData: Omit<SalesType, 'id'>) => {
+const handleAddSale = async (saleData: Omit<SalesType, 'id'>) => {
     const newSale: SalesType = {
         id: `sale-${Date.now()}`,
         ...saleData,
+        status: 'Unpaid', // New sales are Unpaid by default
     };
+
+    // [PERBAIKAN] Buat entri dasar untuk Sales Management
+    const initialManagementDoc = saleToInitialDocument(newSale);
+
+    // Optimistic UI updates
     setSales(prev => [newSale, ...prev]);
+    setSalesManagementDocs(prev => [initialManagementDoc, ...prev]);
+
     try {
-        await postData({ action: 'create', sheetName: 'Sales', data: mapSaleToSheetData(newSale) });
-    } catch (err) {
-        alert('Failed to save sale. Reverting changes.');
-        setSales(prev => prev.filter(s => s.id !== newSale.id));
-    }
-  };
-
-  const handleUpdateSale = async (updatedSale: SalesType) => {
-    const originalSales = [...sales];
-    setSales(prev => prev.map(s => s.id === updatedSale.id ? updatedSale : s));
-    try {
-        await postData({ action: 'update', sheetName: 'Sales', id: updatedSale.id, data: mapSaleToSheetData(updatedSale) });
-    } catch (err) {
-        alert('Failed to update sale. Reverting changes.');
-        setSales(originalSales);
-    }
-  };
-
-  const handleSaveInvoice = async (invoiceData: PaymentOverviewInvoice, items: InvoiceItem[]) => {
-      const finalInvoiceData = {
-          ...invoiceData,
-          billToAddress: invoiceData.client && consumers.find(c => c.name === invoiceData.client)?.alamat || invoiceData.billToAddress || '',
-      };
-
-      const isNew = finalInvoiceData.id.startsWith('new-');
-      let invoiceWithId = isNew ? { ...finalInvoiceData, id: `inv-${Date.now()}` } : finalInvoiceData;
-      
-      let soNumberToUse = invoiceWithId.soNumber;
-      if (!soNumberToUse && items.length > 0 && items[0]?.item) {
-          soNumberToUse = invoiceWithId.number;
-          invoiceWithId = { ...invoiceWithId, soNumber: soNumberToUse }; 
-      }
-      
-      const originalInvoices = [...invoices];
-      const originalSalesOrders = [...salesOrders];
-
-      if (isNew) {
-          setInvoices(prev => [invoiceWithId, ...prev]);
-      } else {
-          setInvoices(prev => prev.map(inv => inv.id === invoiceWithId.id ? invoiceWithId : inv));
-      }
-
-      let newSOItemsForState: SalesOrderType[] = [];
-      if (soNumberToUse) {
-        const otherSOItems = originalSalesOrders.filter(so => so.soNumber !== soNumberToUse);
-        newSOItemsForState = items.map(item => {
-            const existingProduct = products.find(p => p.name === item.item);
-            return {
-                id: `so-${Date.now()}-${Math.random()}`,
-                soNumber: soNumberToUse,
-                name: item.item,
-                category: existingProduct?.category || 'Unknown',
-                quantity: item.quantity,
-                satuan: item.unit,
-                price: item.price
-            };
+        // 1. Simpan ke sheet 'Sales'
+        const salePromise = postData({
+            action: 'create',
+            sheetName: 'Sales',
+            data: mapSaleToSheetData(newSale)
         });
-        setSalesOrders([...otherSOItems, ...newSOItemsForState]);
-      }
-      
-      try {
-          await postData({ action: isNew ? 'create' : 'update', sheetName: 'Invoices', id: invoiceWithId.id, data: mapInvoiceToSheetData(invoiceWithId) });
 
-          if (soNumberToUse) {
-            const oldSOItemsInSheet = originalSalesOrders.filter(so => so.soNumber === soNumberToUse);
-            const oldIdsToDelete = oldSOItemsInSheet.map(so => so.id);
+        // 2. Simpan entri dasar ke sheet 'Sales Management'
+        const managementPromise = postData({
+            action: 'create',
+            sheetName: 'Sales Management',
+            data: mapDocumentToSalesManagementSheetData({
+                ...initialManagementDoc,
+                customer: newSale.customer,
+                salesPerson: newSale.salesPerson
+            })
+        });
 
-            const deletePromises = oldIdsToDelete.map(id => postData({ action: 'delete', sheetName: 'SalesOrders', id }));
-            await Promise.all(deletePromises);
-            
-            const createPromises = newSOItemsForState.map(soItem => postData({ action: 'create', sheetName: 'SalesOrders', data: mapSalesOrderToSheetData(soItem) }));
+        await Promise.all([salePromise, managementPromise]);
+        
+    } catch (err) {
+        alert('Gagal menyimpan data penjualan ke semua sheet. Mengembalikan perubahan.');
+        // Revert both states on failure
+        setSales(prev => prev.filter(s => s.id !== newSale.id));
+        setSalesManagementDocs(prev => prev.filter(d => d.id !== initialManagementDoc.id));
+    }
+};
+
+
+const handleUpdateSale = async (updatedSale: SalesType) => {
+    const originalSales = [...sales];
+    const originalSalesManagementDocs = [...salesManagementDocs];
+    
+    // Optimistically update the main sales list
+    setSales(prev => prev.map(s => s.id === updatedSale.id ? updatedSale : s));
+
+    const salePromise = postData({ 
+        action: 'update', 
+        sheetName: 'Sales', 
+        id: updatedSale.id, 
+        data: mapSaleToSheetData(updatedSale) 
+    });
+
+    const managementDoc = originalSalesManagementDocs.find(d => d.id === updatedSale.id);
+    const promises = [salePromise];
+
+    // ONLY if a corresponding record already exists in Sales Management, update it too.
+    // This will NOT create a new record in Sales Management from this page.
+    if (managementDoc) {
+        const updatedDocForSheet = {
+            ...managementDoc,
+            soNumber: updatedSale.soNumber,
+            poNumber: updatedSale.poNumber,
+            customer: updatedSale.customer, 
+            salesPerson: updatedSale.salesPerson 
+        };
+        
+        // Optimistically update the UI for the management doc
+        setSalesManagementDocs(prev => prev.map(d => d.id === updatedSale.id ? updatedDocForSheet : d));
+        
+        const managementPromise = postData({
+            action: 'update',
+            sheetName: 'Sales Management',
+            id: updatedSale.id,
+            data: mapDocumentToSalesManagementSheetData(updatedDocForSheet),
+        });
+        promises.push(managementPromise);
+    }
+
+    try {
+        await Promise.all(promises);
+    } catch (err) {
+        alert('Gagal memperbarui penjualan. Mengembalikan perubahan.');
+        setSales(originalSales);
+        // Only revert management docs if they were part of the update attempt
+        if (managementDoc) {
+            setSalesManagementDocs(originalSalesManagementDocs);
+        }
+    }
+};
+
+
+const handleSaveInvoice = async (invoiceData: PaymentOverviewInvoice, items: InvoiceItem[]) => {
+    const finalInvoiceData = {
+        ...invoiceData,
+        billToAddress: invoiceData.client && consumers.find(c => c.name === invoiceData.client)?.alamat || invoiceData.billToAddress || '',
+    };
+
+    const isNew = finalInvoiceData.id.startsWith('new-');
+    let invoiceWithId = isNew ? { ...finalInvoiceData, id: `inv-${Date.now()}` } : finalInvoiceData;
+    
+    let soNumberToUse = invoiceWithId.soNumber;
+    if (!soNumberToUse && items.length > 0 && items[0]?.item) {
+        soNumberToUse = invoiceWithId.number;
+        invoiceWithId = { ...invoiceWithId, soNumber: soNumberToUse }; 
+    }
+    
+    const originalInvoices = [...invoices];
+    const originalSalesOrders = [...salesOrders];
+
+    if (isNew) {
+        setInvoices(prev => [invoiceWithId, ...prev]);
+    } else {
+        setInvoices(prev => prev.map(inv => inv.id === invoiceWithId.id ? invoiceWithId : inv));
+    }
+
+    let newSOItemsForState: SalesOrderType[] = [];
+    if (soNumberToUse) {
+      const otherSOItems = originalSalesOrders.filter(so => so.soNumber !== soNumberToUse);
+      newSOItemsForState = items.map(item => ({
+          id: `so-${Date.now()}-${Math.random()}`,
+          soNumber: soNumberToUse,
+          name: item.item,
+          category: products.find(p => p.name === item.item)?.category || 'Unknown',
+          quantity: item.quantity,
+          satuan: item.unit,
+          price: item.price
+      }));
+      setSalesOrders([...otherSOItems, ...newSOItemsForState]);
+    }
+    
+    try {
+        await postData({ action: isNew ? 'create' : 'update', sheetName: 'Invoices', id: invoiceWithId.id, data: mapInvoiceToSheetData(invoiceWithId) });
+
+        if (soNumberToUse) {
+            await postData({ action: 'deleteBySoNumber', sheetName: 'SalesOrders', soNumber: soNumberToUse });
+            const createPromises = newSOItemsForState.map(soItem => 
+                postData({ action: 'create', sheetName: 'SalesOrders', data: mapSalesOrderToSheetData(soItem) })
+            );
             await Promise.all(createPromises);
-          }
+        }
+    } catch (err) {
+        alert('Failed to save invoice and/or item details. Reverting changes.');
+        setInvoices(originalInvoices);
+        setSalesOrders(originalSalesOrders);
+        return;
+    }
 
-      } catch (err) {
-          alert('Failed to save invoice and/or item details. Reverting changes.');
-          setInvoices(originalInvoices);
-          setSalesOrders(originalSalesOrders);
-      }
-  };
+    if (soNumberToUse) {
+        const originalSalesManagementDocs = [...salesManagementDocs];
+        const saleForManagement = sales.find(s => s.soNumber === soNumberToUse);
+
+        if (saleForManagement) {
+            const managementDoc = originalSalesManagementDocs.find(d => d.id === saleForManagement.id);
+            const action = managementDoc ? 'update' : 'create';
+            const statusMap: { [key in PaymentOverviewInvoice['status']]: DocumentType['status'] } = {
+                'Paid': 'PAID', 'Unpaid': 'UNPAID', 'Pending': 'PENDING', 'Overdue': 'OVERDUE', 'Draft': 'PENDING'
+            };
+            const baseDoc = managementDoc || saleToInitialDocument(saleForManagement);
+            const updatedManagementDoc: DocumentType = {
+                ...baseDoc,
+                poNumber: saleForManagement.poNumber || invoiceWithId.poNumber || baseDoc.poNumber,
+                invoiceNumber: invoiceWithId.number,
+                invoiceValue: invoiceWithId.amount,
+                invoiceDate: invoiceWithId.date,
+                taxInvoiceNumber: invoiceWithId.taxInvoiceNumber || baseDoc.taxInvoiceNumber || '',
+                taxInvoiceDate: invoiceWithId.taxInvoiceDate || baseDoc.taxInvoiceDate || '',
+                status: statusMap[invoiceWithId.status] || baseDoc.status,
+                paymentValue: invoiceWithId.status === 'Paid' ? invoiceWithId.amount : (baseDoc.paymentValue || 0),
+                paymentDate: invoiceWithId.status === 'Paid' ? invoiceWithId.date : (baseDoc.paymentDate || ''),
+            };
+            
+            if (action === 'update') {
+                setSalesManagementDocs(prev => prev.map(doc => doc.id === updatedManagementDoc.id ? updatedManagementDoc : doc));
+            } else {
+                setSalesManagementDocs(prev => [...prev, updatedManagementDoc]);
+            }
+            
+            try {
+                await postData({
+                    action: action,
+                    sheetName: 'Sales Management',
+                    id: updatedManagementDoc.id,
+                    data: mapDocumentToSalesManagementSheetData({
+                        ...updatedManagementDoc,
+                        customer: saleForManagement.customer,
+                        salesPerson: saleForManagement.salesPerson,
+                    }),
+                });
+            } catch (err) {
+                alert('Invoice saved, but failed to automatically update Sales Management record. Reverting changes.');
+                setSalesManagementDocs(originalSalesManagementDocs);
+            }
+        } else {
+            console.warn(`Could not find a matching sale for SO: ${soNumberToUse}. Sales Management was not updated.`);
+        }
+    }
+};
 
     const handleSaveInvoiceNumber = async (invoiceData: Omit<PaymentOverviewInvoice, 'id' | 'status' | 'billToAddress'>, editingInvoiceId: string | null) => {
         if (editingInvoiceId) {
@@ -786,12 +966,15 @@ const App: React.FC = () => {
             status: statusMap[doc.status],
             taxInvoiceNumber: doc.taxInvoiceNumber,
             taxInvoiceDate: toStorageDate(doc.taxInvoiceDate),
+            poNumber: doc.poNumber,
+            soNumber: doc.soNumber,
           } 
         : {
             id: doc.id,
             number: doc.invoiceNumber,
             client: selectedSale?.customer || '',
             soNumber: doc.soNumber,
+            poNumber: doc.poNumber,
             date: toStorageDate(doc.invoiceDate),
             amount: doc.invoiceValue,
             status: statusMap[doc.status],
@@ -800,26 +983,53 @@ const App: React.FC = () => {
             createdBy: 'System (Document Save)',
         };
 
-      const isNew = !existingInvoice;
+      const isNewInvoice = !existingInvoice;
       const originalInvoices = [...invoices];
+      const originalSalesManagementDocs = [...salesManagementDocs];
 
-      if (isNew) {
+      if (isNewInvoice) {
           setInvoices(prev => [finalInvoice, ...prev]);
       } else {
           setInvoices(prev => prev.map(inv => inv.id === finalInvoice.id ? finalInvoice : inv));
       }
       
+      const salesManagementData: DocumentType & { customer?: string, salesPerson?: string } = {
+          ...doc,
+          customer: selectedSale?.customer || '',
+          salesPerson: selectedSale?.salesPerson || '',
+      };
+      
+      const salesManagementRecordExists = salesManagementDocs.some(d => d.id === finalInvoice.id);
+
+      if (salesManagementRecordExists) {
+        setSalesManagementDocs(prev => prev.map(d => d.id === finalInvoice.id ? salesManagementData : d));
+      } else {
+        setSalesManagementDocs(prev => [...prev, salesManagementData]);
+      }
+
       try {
-          await postData({ action: isNew ? 'create' : 'update', sheetName: 'Invoices', id: finalInvoice.id, data: mapInvoiceToSheetData(finalInvoice) });
+          // Save to Invoices sheet
+          await postData({ action: isNewInvoice ? 'create' : 'update', sheetName: 'Invoices', id: finalInvoice.id, data: mapInvoiceToSheetData(finalInvoice) });
+          
+          // Save to Sales Management sheet
+          await postData({
+              action: salesManagementRecordExists ? 'update' : 'create',
+              sheetName: 'Sales Management',
+              id: finalInvoice.id,
+              data: mapDocumentToSalesManagementSheetData(salesManagementData),
+          });
+
       } catch (err) {
-          alert('Failed to save document. Reverting changes.');
+          alert('Failed to save document to all sheets. Reverting changes.');
           setInvoices(originalInvoices);
+          setSalesManagementDocs(originalSalesManagementDocs);
       }
   };
 
     const handleDeleteInvoice = async (invoiceId: string, sheetName: 'Invoices' | 'NOMOR FAKTUR') => {
         const originalInvoices = [...invoices];
         const originalNomorFakturInvoices = [...nomorFakturInvoices];
+        const originalSalesManagementDocs = [...salesManagementDocs];
     
         let invoiceToDelete: PaymentOverviewInvoice | undefined;
         let correspondingInvoice: PaymentOverviewInvoice | undefined;
@@ -828,533 +1038,240 @@ const App: React.FC = () => {
     
         if (sheetName === 'Invoices') {
             invoiceToDelete = invoices.find(inv => inv.id === invoiceId);
-            if (!invoiceToDelete) return;
-            correspondingInvoice = nomorFakturInvoices.find(inv => inv.number === invoiceToDelete!.number);
             mainSheet = 'Invoices';
             correspondingSheet = 'NOMOR FAKTUR';
         } else {
             invoiceToDelete = nomorFakturInvoices.find(inv => inv.id === invoiceId);
-            if (!invoiceToDelete) return;
-            correspondingInvoice = invoices.find(inv => inv.number === invoiceToDelete!.number);
             mainSheet = 'NOMOR FAKTUR';
             correspondingSheet = 'Invoices';
         }
-    
-        setInvoices(prev => prev.filter(inv => inv.id !== (mainSheet === 'Invoices' ? invoiceToDelete!.id : correspondingInvoice?.id)));
-        setNomorFakturInvoices(prev => prev.filter(inv => inv.id !== (mainSheet === 'NOMOR FAKTUR' ? invoiceToDelete!.id : correspondingInvoice?.id)));
-    
+
+        if (!invoiceToDelete) return;
+
+        if (sheetName === 'Invoices') {
+            correspondingInvoice = nomorFakturInvoices.find(inv => inv.number === invoiceToDelete!.number);
+        } else {
+            correspondingInvoice = invoices.find(inv => inv.number === invoiceToDelete!.number);
+        }
+
+        // Optimistic UI updates
+        setInvoices(prev => prev.filter(inv => inv.id !== invoiceToDelete?.id && inv.id !== correspondingInvoice?.id));
+        setNomorFakturInvoices(prev => prev.filter(inv => inv.id !== invoiceToDelete?.id && inv.id !== correspondingInvoice?.id));
+
+        const managementDocToDelete = salesManagementDocs.find(doc => doc.id === invoiceToDelete?.id || doc.invoiceNumber === invoiceToDelete?.number);
+        if(managementDocToDelete) {
+            setSalesManagementDocs(prev => prev.filter(d => d.id !== managementDocToDelete.id));
+        }
+        
         try {
-            await postData({ action: 'delete', sheetName, id: invoiceId });
-            if (correspondingInvoice) {
-                await postData({ action: 'delete', sheetName: correspondingSheet, id: correspondingInvoice.id });
+            const deletePromises = [];
+            if (invoiceToDelete) {
+                deletePromises.push(postData({ action: 'delete', sheetName: mainSheet, id: invoiceToDelete.id }));
             }
+            if (correspondingInvoice) {
+                deletePromises.push(postData({ action: 'delete', sheetName: correspondingSheet, id: correspondingInvoice.id }));
+            }
+            if (managementDocToDelete) {
+                deletePromises.push(postData({ action: 'delete', sheetName: 'Sales Management', id: managementDocToDelete.id }));
+            }
+            
+            await Promise.all(deletePromises);
         } catch (err: any) {
-            console.error("Delete failed:", err);
-            alert(`Failed to delete invoice from both sheets: ${err.message}. Reverting changes.`);
+            console.error("Delete invoice failed:", err);
+            alert(`Failed to delete invoice: ${err.message}. Reverting changes.`);
             setInvoices(originalInvoices);
             setNomorFakturInvoices(originalNomorFakturInvoices);
-            throw err;
-        }
-    };
-
-  const handleDeleteDocument = async (docId: string) => {
-    await handleDeleteInvoice(docId, 'Invoices');
-  };
-    
-    const splitAddressIntoLines = (address: string, maxLineLength = 45): string[] => {
-        if (!address) return ['', '', '', ''];
-        const words = address.split(/\s+/);
-        const lines: string[] = [];
-        let currentLine = '';
-
-        words.forEach(word => {
-            if (currentLine.length + word.length + 1 > maxLineLength) {
-                lines.push(currentLine);
-                currentLine = word;
-            } else {
-                currentLine += (currentLine.length > 0 ? ' ' : '') + word;
-            }
-        });
-        if (currentLine.length > 0) {
-            lines.push(currentLine);
-        }
-
-        while (lines.length < 4) {
-            lines.push('');
-        }
-        return lines.slice(0, 4);
-    };
-
-    const updatePreviewSheet = async (previewData: InvoicePreviewData) => {
-        const formatDateForSheet = (dateStr: string): string => {
-            if (!dateStr || !dateStr.includes('-')) return dateStr;
-            const [year, month, day] = dateStr.split('-');
-            if (year && month && day) {
-                return `${day}-${month}-${year}`;
-            }
-            return dateStr;
-        };
-        
-        const addressLines = splitAddressIntoLines(previewData.invoice.billToAddress || '');
-
-        const subtotal = previewData.items.reduce((sum, item) => sum + (item.quantity || 0) * (item.price || 0), 0);
-        const negotiatedSubtotal = subtotal + previewData.negotiationValue;
-        const goods = negotiatedSubtotal - previewData.dpValue - previewData.pelunasanValue;
-        const dppVat = Math.round(goods * 11 / 12);
-        const vat12 = Math.round(dppVat * 12 / 100);
-        const totalRp = goods + vat12;
-
-        const dataPayload: { [key: string]: any } = {
-            invoiceNumber: previewData.invoice.number,
-            customerName: previewData.invoice.client,
-            customerAddressLine1: addressLines[0],
-            customerAddressLine2: addressLines[1],
-            customerAddressLine3: addressLines[2],
-            customerAddressLine4: addressLines[3],
-            salesOrder: previewData.invoice.soNumber || '',
-            orderDate: '-',
-            referenceA: '',
-            date: [formatDateForSheet(previewData.invoice.date), null],
-            poNumber: previewData.invoice.poNumber || '',
-            printType: previewData.invoice.printType || 'Original',
-            
-            items: previewData.items.map((item, index) => ({
-                no: index + 1,
-                description: item.item,
-                quantity: item.quantity,
-                unit: item.unit,
-                price: item.price,
-                amount: [(item.quantity || 0) * (item.price || 0), null]
-            })),
-
-            totals: {
-                subtotal,
-                goods,
-                dppVat,
-                vat12,
-                totalRp,
-            },
-        };
-
-        if (previewData.negotiationValue && previewData.negotiationValue !== 0) {
-            dataPayload.negotiationLabel = "A/Negotiation";
-            dataPayload.negotiationValue = [previewData.negotiationValue, null];
-        }
-
-        if (previewData.dpValue && previewData.dpValue !== 0) {
-            dataPayload.dpLabel = "DP";
-            dataPayload.dpValueText = previewData.dpPercentage 
-                ? `${previewData.dpPercentage}%` 
-                : previewData.dpValue.toLocaleString('id-ID');
-            dataPayload.dpValue = [previewData.dpValue, null];
-        }
-        
-        if (previewData.pelunasanValue && previewData.pelunasanValue !== 0) {
-            dataPayload.pelunasanLabel = "Pelunasan";
-            dataPayload.pelunasanValueText = previewData.pelunasanPercentage
-                ? `${previewData.pelunasanPercentage}%`
-                : previewData.pelunasanValue.toLocaleString('id-ID');
-            dataPayload.pelunasanValue = [previewData.pelunasanValue, null];
-        }
-
-        const payload = {
-            action: 'updatePreviewInvoice',
-            sheetName: 'Preview Invoice',
-            data: dataPayload
-        };
-
-        await postData(payload);
-    };
-
-    const handleGoToPreview = async (previewData: InvoicePreviewData) => {
-        try {
-            await updatePreviewSheet(previewData);
-            setPreviewingInvoice(previewData);
-            setActiveView('invoice/preview');
-        } catch (err) {
-            alert('Failed to update preview sheet in Google Sheets. Please check your connection and try again.');
-            console.error("Error updating preview sheet:", err);
+            setSalesManagementDocs(originalSalesManagementDocs);
         }
     };
     
-    // --- SPD Handlers ---
-
-    const handleInitiateSpdCreation = (selectedInvoices: PaymentOverviewInvoice[]) => {
-        if (selectedInvoices.length === 0) return;
-        setInvoicesForSpd(selectedInvoices);
-        setEditingSpd(null);
-        setIsSpdModalOpen(true);
-    };
-
-    const handleEditSpd = (spdToEdit: PaymentOverviewInvoice) => {
-        setEditingSpd(spdToEdit);
-        setInvoicesForSpd([]);
-        setIsSpdModalOpen(true);
-    };
-
-    const handleCloseSpdModal = () => {
-        setIsSpdModalOpen(false);
-        setInvoicesForSpd([]);
-        setEditingSpd(null);
-    };
-    
-    const handleSaveSpdFromInvoices = async (commonData: Partial<PaymentOverviewInvoice>, selectedInvoices: PaymentOverviewInvoice[]) => {
-        const originalSpdDocs = [...spdDocs];
-        const originalInvoices = [...invoices];
-    
-        const newSpdDocs: PaymentOverviewInvoice[] = selectedInvoices.map(inv => ({
-            ...inv, 
-            ...commonData,
-            id: `spd-${Date.now()}-${Math.random()}`,
-            number: commonData.number!,
-            invoiceNumber: inv.number,
-            invoiceDate: inv.date,
-            totalPiutang: inv.amount,
-            spdNumber: undefined,
-        }));
-        
-        setSpdDocs(prev => [...newSpdDocs, ...prev]);
-        const updatedInvoices = invoices.map(inv => {
-            if (selectedInvoices.find(sel => sel.id === inv.id)) {
-                return { ...inv, spdNumber: commonData.number };
-            }
-            return inv;
-        });
-        setInvoices(updatedInvoices);
-    
-        try {
-            const spdCreatePromises = newSpdDocs.map(spd => 
-                postData({ action: 'create', sheetName: 'NOMOR SPD', data: mapSpdToSheetData(spd) })
-            );
-            const invoiceUpdatePromises = selectedInvoices.map(inv => 
-                postData({ 
-                    action: 'update', 
-                    sheetName: 'Invoices', 
-                    id: inv.id, 
-                    data: mapInvoiceToSheetData({ ...inv, spdNumber: commonData.number }) 
-                })
-            );
-            
-            await Promise.all([...spdCreatePromises, ...invoiceUpdatePromises]);
-        } catch (err) {
-            alert('Failed to save SPDs and link invoices. Reverting changes.');
-            setSpdDocs(originalSpdDocs);
-            setInvoices(originalInvoices);
-        }
-    };
-    
-    const handleUpdateSpd = async (spdData: PaymentOverviewInvoice) => {
-        const originalSpdDocs = [...spdDocs];
-        const originalInvoices = [...invoices];
-        
-        const isNew = !originalSpdDocs.some(d => d.id === spdData.id);
-        const oldSpd = isNew ? null : originalSpdDocs.find(d => d.id === spdData.id);
-
-        if (isNew) {
-            setSpdDocs(prev => [spdData, ...prev]);
-        } else {
-            setSpdDocs(prev => prev.map(d => d.id === spdData.id ? spdData : d));
-        }
-        
-        const updatedInvoices = invoices.map(inv => {
-            if (oldSpd && oldSpd.invoiceNumber && oldSpd.invoiceNumber !== spdData.invoiceNumber && inv.number === oldSpd.invoiceNumber) {
-                return { ...inv, spdNumber: '' };
-            }
-            if (spdData.invoiceNumber && inv.number === spdData.invoiceNumber) {
-                return { ...inv, spdNumber: spdData.number };
-            }
-            return inv;
-        });
-        setInvoices(updatedInvoices);
-
-        try {
-            await postData({ action: isNew ? 'create' : 'update', sheetName: 'NOMOR SPD', id: spdData.id, data: mapSpdToSheetData(spdData) });
-            
-            const promises = [];
-            if (oldSpd && oldSpd.invoiceNumber && oldSpd.invoiceNumber !== spdData.invoiceNumber) {
-                const oldInvoiceToUpdate = originalInvoices.find(inv => inv.number === oldSpd.invoiceNumber);
-                if (oldInvoiceToUpdate) {
-                    promises.push(postData({
-                        action: 'update',
-                        sheetName: 'Invoices',
-                        id: oldInvoiceToUpdate.id,
-                        data: mapInvoiceToSheetData({ ...oldInvoiceToUpdate, spdNumber: '' })
-                    }));
-                }
-            }
-
-            if (spdData.invoiceNumber) {
-                const newInvoiceToUpdate = originalInvoices.find(inv => inv.number === spdData.invoiceNumber);
-                if (newInvoiceToUpdate && newInvoiceToUpdate.spdNumber !== spdData.number) {
-                    promises.push(postData({
-                        action: 'update',
-                        sheetName: 'Invoices',
-                        id: newInvoiceToUpdate.id,
-                        data: mapInvoiceToSheetData({ ...newInvoiceToUpdate, spdNumber: spdData.number })
-                    }));
-                }
-            }
-            await Promise.all(promises);
-
-        } catch (err) {
-            alert('Failed to save SPD and link invoice. Reverting changes.');
-            setSpdDocs(originalSpdDocs);
-            setInvoices(originalInvoices);
-        }
-    };
-
+// FIX: Add missing handler functions and render logic
     const handleDeleteSpd = async (spdId: string) => {
-        const originalSpdDocs = [...spdDocs];
-        const originalInvoices = [...invoices];
-        
-        const spdToDelete = originalSpdDocs.find(doc => doc.id === spdId);
-        if (!spdToDelete) {
-            alert("Error: Could not find the SPD to delete.");
+        const originalSpds = [...spdDocs];
+        const spdToDel = originalSpds.find(s => s.id === spdId);
+        if (!spdToDel || !spdToDel.number) {
+            alert("SPD to delete not found or has no number.");
             return;
         }
+        const originalInvoices = [...invoices];
+        const relatedInvoicesToUpdate = originalInvoices.filter(inv => inv.spdNumber === spdToDel.number);
 
-        // Optimistic UI Update
-        setSpdDocs(prev => prev.filter(doc => doc.id !== spdId));
-        if (spdToDelete.invoiceNumber) {
-            setInvoices(prev => prev.map(inv => 
-                inv.number === spdToDelete.invoiceNumber ? { ...inv, spdNumber: '' } : inv
-            ));
-        }
+        setSpdDocs(prev => prev.filter(s => s.id !== spdId));
+        setInvoices(prev => prev.map(inv => inv.spdNumber === spdToDel.number ? {...inv, spdNumber: ''} : inv));
 
         try {
-            // Single API call to the new backend action
-            const response = await postData({ 
-                action: 'deleteSpdAndUnlinkInvoice', 
-                id: spdId 
+            const deletePromise = postData({ action: 'delete', sheetName: 'NOMOR SPD', id: spdId });
+            const updatePromises = relatedInvoicesToUpdate.map(inv => {
+                const updatedInv = {...inv, spdNumber: ''};
+                return postData({
+                    action: 'update',
+                    sheetName: 'Invoices',
+                    id: inv.id,
+                    data: mapInvoiceToSheetData(updatedInv)
+                });
             });
-
-            if (response && !response.success) {
-                throw new Error(response.message || 'Backend failed to delete the SPD and unlink.');
-            }
-
+            await Promise.all([deletePromise, ...updatePromises]);
         } catch (err: any) {
-            console.error("Delete SPD operation failed:", err);
+            console.error("Delete SPD failed:", err);
             alert(`Failed to delete SPD: ${err.message}. Reverting changes.`);
-            // Revert UI on failure
-            setSpdDocs(originalSpdDocs);
+            setSpdDocs(originalSpds);
             setInvoices(originalInvoices);
-            throw err;
         }
     };
 
-    const handleGoToSpdPreview = (docs: PaymentOverviewInvoice[]) => {
-        setPreviewingSpdDocs(docs);
-        setActiveView('spd/preview');
+    const handleUpdateSpd = async (updatedSpd: PaymentOverviewInvoice) => {
+        const originalSpds = [...spdDocs];
+        setSpdDocs(prev => prev.map(s => s.id === updatedSpd.id ? updatedSpd : s));
+        try {
+            await postData({ action: 'update', sheetName: 'NOMOR SPD', id: updatedSpd.id, data: mapSpdToSheetData(updatedSpd) });
+        } catch (err) {
+            alert('Failed to update SPD. Reverting changes.');
+            setSpdDocs(originalSpds);
+        }
+    };
+
+    const handleSaveSpdBatch = async (commonData: Partial<PaymentOverviewInvoice>, relatedInvoices: PaymentOverviewInvoice[]) => {
+        const originalSpds = [...spdDocs];
+        const originalInvoices = [...invoices];
+
+        const newSpdDocs: PaymentOverviewInvoice[] = relatedInvoices.map(inv => {
+            const saleInfo = sales.find(s => s.soNumber === inv.soNumber);
+            const invoiceDate = new Date(inv.date);
+            const dueDate = new Date(invoiceDate.setDate(invoiceDate.getDate() + 30)).toISOString().split('T')[0];
+
+            return {
+                ...commonData,
+                id: `spd-${Date.now()}-${Math.random()}`,
+                client: inv.client,
+                soNumber: inv.soNumber,
+                invoiceNumber: inv.number,
+                invoiceDate: inv.date,
+                totalPiutang: inv.amount,
+                amount: inv.amount,
+                dueDate: dueDate,
+                sales: saleInfo?.salesPerson || commonData.sales,
+                createdBy: 'System (SPD Batch)',
+                status: 'Draft',
+            } as PaymentOverviewInvoice;
+        });
+
+        const updatedInvoices: PaymentOverviewInvoice[] = relatedInvoices.map(inv => ({ ...inv, spdNumber: commonData.number || '' }));
+        
+        setSpdDocs(prev => [...newSpdDocs, ...prev]);
+        setInvoices(prev => prev.map(inv => updatedInvoices.find(u => u.id === inv.id) || inv));
+
+        try {
+            const createSpdPromises = newSpdDocs.map(spd => postData({ action: 'create', sheetName: 'NOMOR SPD', data: mapSpdToSheetData(spd) }));
+            const updateInvoicePromises = updatedInvoices.map(inv => postData({ action: 'update', sheetName: 'Invoices', id: inv.id, data: mapInvoiceToSheetData(inv) }));
+            await Promise.all([...createSpdPromises, ...updateInvoicePromises]);
+        } catch (err) {
+            alert('Failed to save SPDs and update invoices. Reverting changes.');
+            setSpdDocs(originalSpds);
+            setInvoices(originalInvoices);
+        }
     };
     
+    const handleDeleteDocument = async (docId: string) => {
+      const originalDocs = [...salesManagementDocs];
+      setSalesManagementDocs(prev => prev.filter(d => d.id !== docId));
+      try {
+          await postData({ action: 'delete', sheetName: 'Sales Management', id: docId });
+      } catch (err) {
+          alert('Failed to delete document. Reverting changes.');
+          setSalesManagementDocs(originalDocs);
+      }
+    };
 
-  const renderContent = () => {
-    if (loading && !isAuthenticated) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                    <svg className="animate-spin h-10 w-10 text-indigo-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-300">Loading Data...</p>
-                </div>
+    const renderContent = () => {
+        switch (activeView) {
+            case 'dashboard':
+                return <Dashboard invoices={invoices} salesOrders={salesOrders} products={products} consumers={consumers} />;
+            case 'calendar':
+                return <CalendarPage />;
+            case 'products/list':
+                return <ProductListPage products={products} setActiveView={setActiveView} setEditingProduct={setEditingProduct} onDeleteProduct={handleDeleteProduct} loading={loading} error={error} />;
+            case 'products/add':
+                return <AddProductPage setActiveView={setActiveView} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} productToEdit={editingProduct} setEditingProduct={setEditingProduct} onAddSalesOrder={handleAddSalesOrder} salesOrders={salesOrders} />;
+            case 'products/sales-order':
+                return <SalesOrderPage salesOrders={salesOrders} onDeleteSalesOrder={handleDeleteSalesOrder} loading={loading} error={error} />;
+            case 'consumers':
+                return <ConsumerPage setActiveView={setActiveView} consumers={consumers} setEditingConsumer={setEditingConsumer} onDeleteConsumer={handleDeleteConsumer} loading={loading} error={error} />;
+            case 'consumers/add':
+                return <AddConsumerPage setActiveView={setActiveView} onAddConsumer={handleAddConsumer} onUpdateConsumer={handleUpdateConsumer} consumerToEdit={editingConsumer} setEditingConsumer={setEditingConsumer} />;
+            case 'orders/list':
+                return <OrderListPage sales={sales} salesManagementDocs={salesManagementDocs} setActiveView={setActiveView} setSelectedSale={setSelectedSale} setEditingSale={setEditingSale} loading={loading} error={error} />;
+            case 'orders/add':
+                return <AddSalePage setActiveView={setActiveView} saleToEdit={editingSale} setEditingSale={setEditingSale} onAddSale={handleAddSale} onUpdateSale={handleUpdateSale} consumers={consumers} sales={sales} salesOrders={salesOrders} />;
+            case 'orders/detail':
+                return <SalesManagementPage sales={sales} selectedSale={selectedSale} setActiveView={setActiveView} taxInvoices={taxInvoices} invoices={invoices} onSaveDocument={handleSaveDocument} onDeleteDocument={handleDeleteDocument} />;
+            case 'invoice-list':
+                return <InvoiceListPage invoices={invoices} onDeleteInvoice={(id) => handleDeleteInvoice(id, 'Invoices')} setActiveView={setActiveView} setEditingInvoice={setEditingInvoice} onInitiateSpdCreation={(invoices) => { setInvoicesForSpd(invoices); setIsSpdModalOpen(true); }} loading={loading} error={error} />;
+            case 'invoice/add':
+                return <InvoiceAddPage invoiceToEdit={editingInvoice} setEditingInvoice={setEditingInvoice} setActiveView={setActiveView} onGoToPreview={(data) => { setPreviewingInvoice(data); setActiveView('invoice/preview'); }} onSave={handleSaveInvoice} invoices={invoices} consumers={consumers} salesOrders={salesOrders} products={products} previewData={previewingInvoice} clearPreviewData={() => setPreviewingInvoice(null)} />;
+            case 'invoice/preview':
+                return <InvoicePreviewPage invoiceData={previewingInvoice?.invoice || null} items={previewingInvoice?.items || []} setActiveView={setActiveView} negotiationValue={previewingInvoice?.negotiationValue} dpValue={previewingInvoice?.dpValue} dpPercentage={previewingInvoice?.dpPercentage} pelunasanValue={previewingInvoice?.pelunasanValue} pelunasanPercentage={previewingInvoice?.pelunasanPercentage} />;
+            case 'invoice/nomor-invoice':
+                return <NomorInvoicePage setActiveView={setActiveView} consumers={consumers} invoices={nomorFakturInvoices} onSaveInvoice={handleSaveInvoiceNumber} onDeleteInvoice={(id) => handleDeleteInvoice(id, 'NOMOR FAKTUR')} onBulkAddInvoices={handleBulkAddInvoices} sales={sales} salesOrders={salesOrders} />;
+            case 'tax-invoices':
+                return <TaxInvoicePage taxInvoices={taxInvoices} loading={loading} error={error} />;
+            case 'spd':
+                return <SpdPage spds={spdDocs} onEditSpd={(spd) => { setEditingSpd(spd); setIsSpdModalOpen(true); }} onDeleteSpd={handleDeleteSpd} onPreviewSpd={(docs) => { setPreviewingSpdDocs(docs); setActiveView('spd/preview'); }} />;
+            case 'spd/preview':
+                return <SpdPreviewPage spdDocs={previewingSpdDocs || []} consumers={consumers} setActiveView={setActiveView} />;
+            default:
+                return <Dashboard invoices={invoices} salesOrders={salesOrders} products={products} consumers={consumers} />;
+        }
+    };
+
+    const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    const toggleLanguage = () => setLanguage(prev => prev === 'en' ? 'id' : 'en');
+    
+    if (!isAuthenticated) {
+        return <LoginPage onLogin={handleLogin} />;
+    }
+
+    return (
+        <div className="flex h-screen bg-gray-100 dark:bg-slate-900 font-sans">
+            <Sidebar
+                activeView={activeView}
+                setActiveView={setActiveView}
+                isSidebarCollapsed={isSidebarCollapsed}
+                toggleSidebar={() => setIsSidebarCollapsed(prev => !prev)}
+                language={language}
+            />
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <Header
+                    setActiveView={setActiveView}
+                    theme={theme}
+                    toggleTheme={toggleTheme}
+                    language={language}
+                    toggleLanguage={toggleLanguage}
+                    onLogout={handleLogout}
+                />
+                <main className="flex-1 overflow-x-hidden overflow-y-auto">
+                    {renderContent()}
+                    {isSpdModalOpen && (
+                        <AddSpdModal
+                            isOpen={isSpdModalOpen}
+                            onClose={() => {
+                                setIsSpdModalOpen(false);
+                                setEditingSpd(null);
+                            }}
+                            onSaveBatch={handleSaveSpdBatch}
+                            onSaveSingle={handleUpdateSpd}
+                            consumers={consumers}
+                            invoicesForCreation={invoicesForSpd}
+                            spdToEdit={editingSpd}
+                            sales={sales}
+                            allInvoices={invoices}
+                            spds={spdDocs}
+                        />
+                    )}
+                </main>
             </div>
-        );
-    }
-    if (error) {
-        return (
-            <div className="flex items-center justify-center h-full p-4">
-                 <div className="text-center bg-red-100 dark:bg-red-900/50 p-6 rounded-lg border border-red-300 dark:border-red-700">
-                    <h2 className="text-xl font-bold text-red-700 dark:text-red-300">An Error Occurred</h2>
-                    <p className="mt-2 text-red-600 dark:text-red-400">{error}</p>
-                 </div>
-            </div>
-        );
-    }
-
-    switch(activeView) {
-        case 'dashboard':
-            return <Dashboard invoices={invoices} salesOrders={salesOrders} products={products} consumers={consumers} />;
-        case 'calendar':
-            return <CalendarPage />;
-        case 'products/list':
-            return <ProductListPage 
-                        products={products} 
-                        setActiveView={setActiveView} 
-                        setEditingProduct={setEditingProduct} 
-                        onDeleteProduct={handleDeleteProduct} 
-                        loading={loading}
-                        error={error}
-                    />;
-        case 'products/add':
-            return <AddProductPage 
-                        setActiveView={setActiveView} 
-                        onAddProduct={handleAddProduct} 
-                        onUpdateProduct={handleUpdateProduct}
-                        productToEdit={editingProduct}
-                        setEditingProduct={setEditingProduct}
-                        onAddSalesOrder={handleAddSalesOrder}
-                        salesOrders={salesOrders}
-                    />;
-        case 'orders/list':
-             return <OrderListPage 
-                        sales={sales}
-                        setActiveView={setActiveView}
-                        setSelectedSale={setSelectedSale}
-                        setEditingSale={setEditingSale}
-                        loading={loading}
-                        error={error}
-                    />;
-        case 'orders/detail':
-            return <SalesManagementPage 
-                        sales={sales}
-                        selectedSale={selectedSale}
-                        setActiveView={setActiveView}
-                        taxInvoices={taxInvoices}
-                        invoices={invoices}
-                        onSaveDocument={handleSaveDocument}
-                        onDeleteDocument={handleDeleteDocument}
-                    />;
-        case 'consumers':
-            return <ConsumerPage 
-                        setActiveView={setActiveView} 
-                        consumers={consumers} 
-                        setEditingConsumer={setEditingConsumer}
-                        onDeleteConsumer={handleDeleteConsumer}
-                        loading={loading}
-                        error={error}
-                    />;
-        case 'consumers/add':
-            return <AddConsumerPage 
-                        setActiveView={setActiveView}
-                        onAddConsumer={handleAddConsumer}
-                        onUpdateConsumer={handleUpdateConsumer}
-                        consumerToEdit={editingConsumer}
-                        setEditingConsumer={setEditingConsumer}
-                    />;
-        case 'invoice-list':
-            return <InvoiceListPage 
-                        invoices={invoices} 
-                        onDeleteInvoice={(id) => handleDeleteInvoice(id, 'Invoices')}
-                        setActiveView={setActiveView}
-                        setEditingInvoice={setEditingInvoice}
-                        onInitiateSpdCreation={handleInitiateSpdCreation}
-                        loading={loading}
-                        error={error}
-                    />;
-        case 'invoice/add':
-            return <InvoiceAddPage 
-                        invoiceToEdit={editingInvoice}
-                        setEditingInvoice={setEditingInvoice}
-                        setActiveView={setActiveView}
-                        onGoToPreview={handleGoToPreview}
-                        onSave={handleSaveInvoice}
-                        invoices={invoices}
-                        consumers={consumers}
-                        salesOrders={salesOrders}
-                        products={products}
-                        previewData={previewingInvoice}
-                        clearPreviewData={() => setPreviewingInvoice(null)}
-                    />;
-        case 'invoice/preview':
-            return <InvoicePreviewPage 
-                        invoiceData={previewingInvoice?.invoice || null}
-                        items={previewingInvoice?.items || []}
-                        setActiveView={setActiveView}
-                        negotiationValue={previewingInvoice?.negotiationValue}
-                        dpValue={previewingInvoice?.dpValue}
-                        dpPercentage={previewingInvoice?.dpPercentage}
-                        pelunasanValue={previewingInvoice?.pelunasanValue}
-                        pelunasanPercentage={previewingInvoice?.pelunasanPercentage}
-                    />;
-        case 'invoice/nomor-invoice':
-            return <NomorInvoicePage 
-                        setActiveView={setActiveView}
-                        consumers={consumers}
-                        invoices={nomorFakturInvoices}
-                        onSaveInvoice={handleSaveInvoiceNumber}
-                        onDeleteInvoice={(id) => handleDeleteInvoice(id, 'NOMOR FAKTUR')}
-                        onBulkAddInvoices={handleBulkAddInvoices}
-                        sales={sales}
-                        salesOrders={salesOrders}
-                    />;
-        case 'spd':
-            return <SpdPage
-                        spds={spdDocs}
-                        onEditSpd={handleEditSpd}
-                        onDeleteSpd={handleDeleteSpd}
-                        onPreviewSpd={handleGoToSpdPreview}
-                    />;
-        case 'spd/preview':
-            return <SpdPreviewPage
-                        spdDocs={previewingSpdDocs || []}
-                        consumers={consumers}
-                        setActiveView={setActiveView}
-                    />;
-        case 'tax-invoices':
-            return <TaxInvoicePage taxInvoices={taxInvoices} loading={loading} error={error} />;
-        case 'products/sales-order':
-            return <SalesOrderPage 
-                        salesOrders={salesOrders}
-                        onDeleteSalesOrder={handleDeleteSalesOrder}
-                        loading={loading}
-                        error={error}
-                    />;
-        case 'orders/add':
-            return <AddSalePage 
-                        setActiveView={setActiveView}
-                        saleToEdit={editingSale}
-                        setEditingSale={setEditingSale}
-                        onAddSale={handleAddSale}
-                        onUpdateSale={handleUpdateSale}
-                        salespersons={uniqueSalesPersons}
-                    />;
-        default:
-            return <Dashboard invoices={invoices} salesOrders={salesOrders} products={products} consumers={consumers} />;
-    }
-  }
-
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
-  return (
-    <div className={`flex h-screen font-sans`}>
-      <Sidebar 
-        activeView={activeView} 
-        setActiveView={setActiveView} 
-        isSidebarCollapsed={isSidebarCollapsed}
-        toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        language={language}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-100 dark:bg-slate-900">
-        <Header 
-          setActiveView={setActiveView}
-          theme={theme}
-          toggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          language={language}
-          toggleLanguage={() => setLanguage(language === 'en' ? 'id' : 'en')}
-          onLogout={handleLogout}
-        />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto">
-          {renderContent()}
-        </main>
-      </div>
-      <AddSpdModal
-        isOpen={isSpdModalOpen}
-        onClose={handleCloseSpdModal}
-        onSaveBatch={handleSaveSpdFromInvoices}
-        onSaveSingle={handleUpdateSpd}
-        invoicesForCreation={invoicesForSpd}
-        spdToEdit={editingSpd}
-        consumers={consumers}
-        sales={sales}
-        allInvoices={invoices}
-        spds={spdDocs}
-       />
-    </div>
-  );
+        </div>
+    );
+// FIX: Added missing closing braces for the function and component.
 };
 
 export default App;

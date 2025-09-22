@@ -1,9 +1,5 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDownIcon } from './icons';
-
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec";
 
 interface Category {
   id: string;
@@ -22,7 +18,7 @@ const CategoryItem: React.FC<{ category: Category; level: number }> = ({ categor
                     {hasSub && (
                         // FIX: The `onClick` handler was incorrectly passed to the `ChevronDownIcon` component.
                         // It has been moved to a wrapping `<button>` element to make the icon clickable and fix the type error.
-                        <button type="button" onClick={() => setIsExpanded(!isExpanded)} className="mr-2">
+                        <button type="button" onClick={() => setIsExpanded(!isExpanded)} className="mr-2 p-1">
                             <ChevronDownIcon className={`w-5 h-5 transition-transform text-gray-500 dark:text-gray-400 ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
                         </button>
                     )}

@@ -3,8 +3,6 @@ import type { CalendarEventType, CalendarEventCategory } from '../types';
 import { PlusIcon, ChevronLeftIcon } from './icons';
 import AddEventDrawer from './AddEventDrawer';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxfE7lZgkXkmhY47B8Q-Vnzcu7dnqeSBm991sdm6kbtu7h9pB5ZLCg-vFOZu7NfD6OvzA/exec";
-
 export const eventCategories: { id: CalendarEventCategory; label: string; color: string; dot: string }[] = [
     { id: 'business', label: 'Business', color: 'bg-blue-600', dot: 'bg-blue-500' },
     { id: 'personal', label: 'Personal', color: 'bg-red-500', dot: 'bg-red-500' },
