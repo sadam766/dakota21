@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import Header from './components/Header.tsx';
@@ -208,18 +210,18 @@ const mapTaxInvoiceToSheetData = (taxInvoice: TaxInvoiceType) => ({
 });
 
 const mapSheetDataToProduct = (sheetRow: any): ProductType => {
-    const stock = Number(sheetRow.QUANTITY) || 0;
+    const stock = Number(findValueByKey(sheetRow, 'QUANTITY')) || 0;
     let status: 'In Stock' | 'Low Stock' | 'Out of Stock' = 'Out of Stock';
     if (stock > 0) {
         status = stock < 20 ? 'Low Stock' : 'In Stock';
     }
     return {
         id: sheetRow.id,
-        name: String(sheetRow.PRODUCT || ''),
-        category: String(sheetRow.CATEGORY || ''),
-        price: Number(sheetRow.PRICE) || 0,
+        name: String(findValueByKey(sheetRow, 'PRODUCT') || ''),
+        category: String(findValueByKey(sheetRow, 'CATEGORY') || ''),
+        price: Number(findValueByKey(sheetRow, 'PRICE')) || 0,
         stock: stock,
-        unit: String(sheetRow.SATUAN || 'pcs'),
+        unit: String(findValueByKey(sheetRow, 'SATUAN') || 'pcs'),
         image: '',
         status: status,
     };
@@ -868,15 +870,15 @@ const handleSaveInvoice = async (invoiceData: PaymentOverviewInvoice, items: Inv
             }
         } else {
             const tempId = `inv-num-${Date.now()}`;
-            // FIX: The `billToAddress` property was potentially being assigned `undefined`, which caused a type error.
-            // By using the nullish coalescing operator `??` and providing a fallback `''`, we ensure it's always a string, satisfying the type.
+            // FIX: The `billToAddress` property was potentially being assigned `undefined`, which caused a type error. By using the nullish coalescing operator `??` and providing a fallback `''`, we ensure it's always a string, satisfying the type.
             const optimisticInvoice: PaymentOverviewInvoice = {
                 id: tempId,
                 status: 'Draft',
                 ...invoiceData,
                 client: invoiceData.client ?? '',
                 number: 'Generating...',
-                billToAddress: consumers.find(c => c.name === (invoiceData.client ?? ''))?.alamat ?? (invoiceData.billToAddress ?? ''),
+// FIX: The `billToAddress` property was potentially being assigned `undefined` due to a complex expression, causing a type error. Simplified the expression and ensured a fallback to an empty string.
+                billToAddress: consumers.find(c => c.name === (invoiceData.client ?? ''))?.alamat ?? invoiceData.billToAddress ?? '',
                 createdBy: 'System (Nomor Faktur)',
                 date: invoiceData.date ?? new Date().toISOString().split('T')[0],
                 amount: invoiceData.amount ?? 0,

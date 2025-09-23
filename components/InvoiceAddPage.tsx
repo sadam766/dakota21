@@ -292,7 +292,8 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
         if (!activeItem || !activeItem.item) {
             return products;
         }
-        const searchTerm = activeItem.item.toLowerCase();
+        // FIX: Added String() wrapper to prevent `toLowerCase` on a potentially non-string value.
+        const searchTerm = String(activeItem.item).toLowerCase();
         return products.filter(p => p.name.toLowerCase().includes(searchTerm));
     }, [activeItemSearch, items, products]);
 
