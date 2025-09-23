@@ -1,6 +1,7 @@
 
 
 
+
 import type React from 'react';
 
 export interface NavItemType {
@@ -145,6 +146,7 @@ export interface CalendarEventType {
   allDay: boolean;
   description?: string;
   time?: string; // Kept for display purposes if needed
+  extendedProps?: any;
 }
 
 export interface SalesType {

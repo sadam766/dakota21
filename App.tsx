@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar.tsx';
 import Header from './components/Header.tsx';
@@ -868,17 +869,17 @@ const handleSaveInvoice = async (invoiceData: PaymentOverviewInvoice, items: Inv
         } else {
             const tempId = `inv-num-${Date.now()}`;
             // FIX: The `billToAddress` property was potentially being assigned `undefined`, which caused a type error.
-            // By using the nullish coalescing operator `??` and providing a fallback `''`, we ensure it's always a string, satisfying the inferred type.
+            // By using the nullish coalescing operator `??` and providing a fallback `''`, we ensure it's always a string, satisfying the type.
             const optimisticInvoice: PaymentOverviewInvoice = {
                 id: tempId,
                 status: 'Draft',
                 ...invoiceData,
-                client: invoiceData.client!,
+                client: invoiceData.client ?? '',
                 number: 'Generating...',
                 billToAddress: consumers.find(c => c.name === (invoiceData.client ?? ''))?.alamat ?? (invoiceData.billToAddress ?? ''),
                 createdBy: 'System (Nomor Faktur)',
-                date: invoiceData.date!,
-                amount: invoiceData.amount!,
+                date: invoiceData.date ?? new Date().toISOString().split('T')[0],
+                amount: invoiceData.amount ?? 0,
             };
             
             setNomorFakturInvoices(prev => [optimisticInvoice, ...prev]);
@@ -1229,7 +1230,7 @@ const handleSaveInvoice = async (invoiceData: PaymentOverviewInvoice, items: Inv
             case 'dashboard':
                 return <Dashboard invoices={invoices} salesOrders={salesOrders} products={products} consumers={consumers} />;
             case 'calendar':
-                return <CalendarPage />;
+                return <CalendarPage invoices={invoices} sales={sales} setActiveView={setActiveView} setSelectedSale={setSelectedSale} />;
             case 'products/list':
                 return <ProductListPage products={products} setActiveView={setActiveView} setEditingProduct={setEditingProduct} onDeleteProduct={handleDeleteProduct} loading={loading} error={error} />;
             case 'products/add':
