@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDocs, runTransaction, setDoc, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { db, auth } from './firebase'; // <-- DIIMPOR DARI FILE AMAN
 import Sidebar from './components/Sidebar.tsx';
 import Header from './components/Header.tsx';
 import Dashboard from './components/Dashboard.tsx';
@@ -24,11 +25,6 @@ import InvoicePreviewPage from './components/InvoicePreviewPage.tsx';
 import LoginPage from './components/LoginPage.tsx';
 import AddSpdModal from './components/AddSpdModal.tsx';
 import MonitoringPage from './components/MonitoringPage.tsx';
-
-// @ts-ignore
-const db = window.firebase.db;
-// @ts-ignore
-const auth = window.firebase.auth;
 
 const COLLECTIONS = {
     PRODUCTS: 'Products',

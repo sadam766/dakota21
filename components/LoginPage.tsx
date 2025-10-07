@@ -2,10 +2,8 @@
 
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase';
 import { FacebookIcon, TwitterIcon, GithubIcon, GoogleIcon, EyeIcon, EyeOffIcon } from './icons';
-
-// @ts-ignore
-const auth = window.firebase.auth;
 
 interface LoginPageProps {
   // onLogin prop is no longer needed as App.tsx listens to auth state changes.
