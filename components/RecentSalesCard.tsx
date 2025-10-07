@@ -55,7 +55,17 @@ const RecentSalesCard: React.FC<RecentSalesCardProps> = ({ invoices }) => {
 
         return invoices
             .filter(invoice => invoice.date)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .sort((a, b) => {
+                const dateA = new Date(a.date).getTime();
+                const dateB = new Date(b.date).getTime();
+                
+                // Handle cases where dates are invalid (result in NaN)
+                if (isNaN(dateA) && isNaN(dateB)) return 0;
+                if (isNaN(dateA)) return 1;  // Put invalid dates at the end
+                if (isNaN(dateB)) return -1; // Keep valid dates at the start
+
+                return dateB - dateA; // Sort descending (most recent first)
+            })
             .slice(0, 4)
             .map((invoice): RecentSale => ({
                 id: invoice.number,
