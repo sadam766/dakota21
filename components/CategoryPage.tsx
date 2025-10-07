@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDownIcon } from './icons';
 
@@ -16,8 +17,6 @@ const CategoryItem: React.FC<{ category: Category; level: number }> = ({ categor
             <div className={`flex items-center justify-between p-2 rounded-md ${level > 0 ? 'hover:bg-gray-100 dark:hover:bg-slate-700' : ''}`}>
                 <div className="flex items-center">
                     {hasSub && (
-                        // FIX: The `onClick` handler was incorrectly passed to the `ChevronDownIcon` component.
-                        // It has been moved to a wrapping `<button>` element to make the icon clickable and fix the type error.
                         <button type="button" onClick={() => setIsExpanded(!isExpanded)} className="mr-2 p-1">
                             <ChevronDownIcon className={`w-5 h-5 transition-transform text-gray-500 dark:text-gray-400 ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
                         </button>

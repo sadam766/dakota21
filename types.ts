@@ -1,7 +1,6 @@
 
 
 
-
 import type React from 'react';
 
 export interface NavItemType {
@@ -33,6 +32,7 @@ export interface DocumentType {
   dueDate: string;
   paymentValue: number;
   paymentDate: string;
+  userId?: string;
 }
 
 export interface InvoiceType {
@@ -73,6 +73,8 @@ export interface PaymentOverviewInvoice {
   suratJalan?: string;
   // Field to link Invoice to SPD
   spdNumber?: string;
+  ownerId?: string;
+  userId?: string;
 }
 
 export interface TaxInvoiceType {
@@ -107,6 +109,7 @@ export interface ProductType {
   stock: number;
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
   unit?: string;
+  userId?: string;
 }
 
 export interface SalesOrderType {
@@ -117,6 +120,7 @@ export interface SalesOrderType {
   quantity: number;
   satuan: string;
   price: number;
+  userId?: string;
 }
 
 export interface OrderType {
@@ -133,6 +137,7 @@ export interface ConsumerType {
   name: string;
   alamat: string;
   alamatSpd: string;
+  userId?: string;
 }
 
 export type CalendarEventCategory = 'personal' | 'business' | 'family' | 'holiday';
@@ -158,6 +163,7 @@ export interface SalesType {
   date: string;
   amount: number;
   status: 'Paid' | 'Pending' | 'Unpaid' | 'Overdue' | 'Draft';
+  userId?: string;
 }
 
 export interface InvoiceItem {

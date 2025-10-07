@@ -5,7 +5,7 @@ import type { SalesOrderType, ProductType } from '../types';
 
 interface AddProductPageProps {
     setActiveView: (view: string) => void;
-    onAddProduct: (product: Omit<ProductType, 'id' | 'image' | 'status'>) => void;
+    onAddProduct: (product: Omit<ProductType, 'id' | 'image' | 'status'>) => Promise<boolean>;
     onUpdateProduct: (product: ProductType) => void;
     productToEdit: ProductType | null;
     setEditingProduct: (product: ProductType | null) => void;
@@ -100,7 +100,7 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ setActiveView, onAddPro
     setIsSOSearchOpen(false);
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!productName || !category || quantity <= 0 || !unit || price <= 0) {
@@ -138,15 +138,19 @@ const AddProductPage: React.FC<AddProductPageProps> = ({ setActiveView, onAddPro
             alert(`Product added to Sales Order ${soSearchTerm}`);
             setActiveView('products/sales-order');
         } else {
-            onAddProduct({
+            const success = await onAddProduct({
                 name: productName,
                 category: category,
                 price: price,
                 stock: quantity,
                 unit: unit,
             });
-            alert(`Product "${productName}" added to the product list.`);
-            setActiveView('products/list');
+            if (success) {
+                alert(`Product "${productName}" added to the product list.`);
+                setActiveView('products/list');
+            } else {
+                alert(`Failed to save product "${productName}". Please check the console for errors.`);
+            }
         }
     }
   };

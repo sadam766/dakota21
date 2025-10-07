@@ -16,9 +16,11 @@ interface NomorInvoicePageProps {
   onBulkAddInvoices: (invoices: any[]) => void;
   sales: SalesType[];
   salesOrders: SalesOrderType[];
+  loading: boolean;
+  error: string | null;
 }
 
-const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, consumers, invoices, onSaveInvoice, onDeleteInvoice, onBulkAddInvoices, sales, salesOrders }) => {
+const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, consumers, invoices, onSaveInvoice, onDeleteInvoice, onBulkAddInvoices, sales, salesOrders, loading, error }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -252,7 +254,23 @@ const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, cons
               </tr>
             </thead>
             <tbody>
-              {paginatedData.currentItems.length > 0 ? (
+              {loading ? (
+                <tr>
+                    <td colSpan={6} className="text-center p-6 text-gray-500 dark:text-gray-400">
+                        Memuat data...
+                    </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                    <td colSpan={6} className="text-center p-6 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20">
+                        <p className="font-bold">Gagal memuat data.</p>
+                        <p className="text-sm">{error}</p>
+                        <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                            Jika error menyebutkan 'index', periksa konsol browser (F12) untuk link pembuatan indeks dari Firebase.
+                        </p>
+                    </td>
+                </tr>
+              ) : paginatedData.currentItems.length > 0 ? (
                 paginatedData.currentItems.map((invoice) => (
                   <tr key={invoice.id} className={`border-b border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50 ${isDuplicateFilterActive ? 'bg-red-50 dark:bg-red-900/40' : ''}`}>
                     <td className="p-3">

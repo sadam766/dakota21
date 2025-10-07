@@ -244,7 +244,7 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
         if (term) {
             const uniqueSOs = [...new Set(salesOrders.map(so => so.soNumber))];
             setFilteredSOs(
-                uniqueSOs.filter(so => so.toLowerCase().includes(term.toLowerCase()))
+                uniqueSOs.filter(so => so != null && String(so).toLowerCase().includes(term.toLowerCase()))
             );
             setIsSOSearchOpen(true);
         } else {
@@ -289,12 +289,14 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
     const filteredItemProducts = useMemo(() => {
         if (activeItemSearch === null) return [];
         const activeItem = items.find(i => i.id === activeItemSearch);
-        if (!activeItem || !activeItem.item) {
-            return products;
-        }
-        // FIX: Added String() wrapper to prevent `toLowerCase` on a potentially non-string value.
-        const searchTerm = String(activeItem.item).toLowerCase();
-        return products.filter(p => p.name.toLowerCase().includes(searchTerm));
+        const searchTerm = String(activeItem?.item || '').toLowerCase();
+        
+        return products.filter(p => {
+            if (p.name != null) {
+                return String(p.name).toLowerCase().includes(searchTerm);
+            }
+            return false;
+        });
     }, [activeItemSearch, items, products]);
 
     const handleAddItem = () => {
@@ -662,7 +664,7 @@ const InvoiceAddPage: FC<InvoiceAddPageProps> = ({
                                     type="text"
                                     inputMode="numeric"
                                     value={pelunasanValue ? formatNumberInput(String(pelunasanValue)) : ''}
-                                    onChange={handlePelunasanValueChange}
+                                    onChange={(e) => setPelunasanValue(parseFormattedNumber(e.target.value))}
                                     className="w-36 p-1 rounded-md bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-right text-gray-800 dark:text-gray-200"
                                     placeholder="e.g. 50.000"
                                 />

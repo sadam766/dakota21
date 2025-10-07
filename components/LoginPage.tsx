@@ -1,9 +1,14 @@
 
+
 import React, { useState } from 'react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { FacebookIcon, TwitterIcon, GithubIcon, GoogleIcon, EyeIcon, EyeOffIcon } from './icons';
 
+// @ts-ignore
+const auth = window.firebase.auth;
+
 interface LoginPageProps {
-  onLogin: () => void;
+  // onLogin prop is no longer needed as App.tsx listens to auth state changes.
 }
 
 const TreeIllustrationLeft: React.FC = () => (
@@ -45,21 +50,40 @@ const TreeIllustrationRight: React.FC = () => (
     </svg>
 );
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+const LoginPage: React.FC<LoginPageProps> = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); // Clear previous errors
+    setError('');
+    setLoading(true);
 
-    if (email.trim() === 'fa@gmail.com' && password.trim() === 'fa123') {
-      onLogin();
-    } else {
-      setError('Email atau password salah.');
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password.trim());
+      // onAuthStateChanged in App.tsx will handle navigation.
+    } catch (error: any) {
+      switch (error.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          setError('Email atau password salah.');
+          break;
+        case 'auth/invalid-email':
+          setError('Format email tidak valid.');
+          break;
+        default:
+          setError('Terjadi kesalahan saat login. Silakan coba lagi.');
+          break;
+      }
+      console.error("Firebase login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -143,9 +167,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 </div>
                 <button
                     type="submit"
-                    className="w-full py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    disabled={loading}
+                    className="w-full py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-75"
                 >
-                    Log In
+                    {loading ? 'Logging in...' : 'Log In'}
                 </button>
             </form>
 
