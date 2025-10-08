@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { SalesType, DocumentType, TaxInvoiceType, PaymentOverviewInvoice } from '../types';
 import {
@@ -246,18 +245,21 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
   const documentsWithData = useMemo(() => {
     if (!selectedSale || !invoices) return [];
     
-    // Helper to format YYYY-MM-DD to DD/MM/YYYY
     const formatDateForDisplay = (dateStr?: string) => {
         if (!dateStr || !dateStr.includes('-')) return dateStr || '';
         const [y, m, d] = dateStr.split('-');
-        return `${d}/${m}/${y}`;
+        if (y && m && d) return `${d}/${m}/${y}`;
+        return dateStr;
     };
 
     const taxInvoiceMap = new Map<string, TaxInvoiceType>();
     taxInvoices.forEach(ti => {
         if (ti.referensi) {
             const existing = taxInvoiceMap.get(ti.referensi);
-            if (!existing || new Date(ti.tanggalFaktur) > new Date(existing.tanggalFaktur)) {
+            // Add date validation before comparing
+            const newDate = new Date(ti.tanggalFaktur);
+            const existingDate = existing ? new Date(existing.tanggalFaktur) : null;
+            if (!isNaN(newDate.getTime()) && (!existingDate || isNaN(existingDate.getTime()) || newDate > existingDate)) {
                  taxInvoiceMap.set(ti.referensi, ti);
             }
         }
@@ -265,14 +267,18 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
     
     const relevantInvoices = getRelevantInvoices(selectedSale, invoices);
 
-
     return relevantInvoices.map(inv => {
             const statusMap: { [key in PaymentOverviewInvoice['status']]: DocumentType['status'] } = {
                 'Paid': 'PAID', 'Unpaid': 'UNPAID', 'Pending': 'PENDING', 'Overdue': 'OVERDUE', 'Draft': 'PENDING'
             };
 
-            const dueDate = new Date(inv.date);
-            dueDate.setDate(dueDate.getDate() + 30); // Assuming 30-day due date
+            const isValidDate = inv.date && !isNaN(new Date(inv.date).getTime());
+            let dueDateStr = '-';
+            if (isValidDate) {
+                const dueDate = new Date(inv.date);
+                dueDate.setDate(dueDate.getDate() + 30); // Assuming 30-day due date
+                dueDateStr = dueDate.toISOString().split('T')[0];
+            }
 
             const taxInfo = inv.soNumber ? taxInvoiceMap.get(inv.soNumber) : undefined;
 
@@ -283,14 +289,14 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
                 proformaInvoiceNumber: `${inv.soNumber || 'PI'} / ${inv.client}`,
                 invoiceNumber: inv.number,
                 invoiceValue: inv.amount,
-                invoiceDate: formatDateForDisplay(inv.date),
+                invoiceDate: isValidDate ? formatDateForDisplay(inv.date) : '-',
                 taxInvoiceNumber: inv.taxInvoiceNumber || '',
                 taxInvoiceDate: formatDateForDisplay(inv.taxInvoiceDate),
                 taxInvoiceStatus: taxInfo?.statusFaktur,
                 status: statusMap[inv.status],
-                dueDate: formatDateForDisplay(dueDate.toISOString().split('T')[0]),
+                dueDate: formatDateForDisplay(dueDateStr),
                 paymentValue: inv.status === 'Paid' ? inv.amount : 0,
-                paymentDate: inv.status === 'Paid' ? formatDateForDisplay(inv.date) : '-',
+                paymentDate: inv.status === 'Paid' && isValidDate ? formatDateForDisplay(inv.date) : '-',
             } as DocumentType;
         });
   }, [invoices, taxInvoices, selectedSale]);
@@ -415,8 +421,8 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
       }
   };
 
-  const formatIDR = (value: number) => value.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
-  const formatIDRK = (value: number) => `Rp${(value / 1000000).toFixed(1)}jt`;
+  const formatIDR = (value: number) => (value || 0).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
+  const formatIDRK = (value: number) => `Rp${((value || 0) / 1000000).toFixed(1)}jt`;
   
   const estimateStats = useMemo(() => {
     if (!selectedSale) return { totalCount: 0, mainValue: formatIDRK(0), stats: [] };

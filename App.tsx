@@ -537,13 +537,31 @@ const handleDeleteSpd = async (spdId: string) => { await deleteDoc(doc(db, COLLE
 const handleUpdateSpd = async (updatedSpd: PaymentOverviewInvoice) => { 
     const user = auth.currentUser;
     if (!user) { alert("You must be logged in."); return; }
-    const {id, ...data} = updatedSpd;
-    const dataToUpdate = {
-        ...data,
-        userId: user.uid,
-        date: new Date(data.date),
-    };
-    await updateDoc(doc(db, COLLECTIONS.NOMOR_SPD, id), dataToUpdate); 
+    const { id, ...data } = updatedSpd;
+    
+    // Create a copy to modify for Firestore
+    const dataToUpdate: { [key: string]: any } = { ...data, userId: user.uid };
+
+    // Safely convert all potential date strings to Date objects
+    const dateFields: (keyof PaymentOverviewInvoice)[] = ['date', 'invoiceDate', 'customerReceiptDate', 'dueDate'];
+    dateFields.forEach(field => {
+        const dateValue = data[field as keyof typeof data];
+        if (dateValue && typeof dateValue === 'string') {
+            const d = new Date(dateValue);
+            if (!isNaN(d.getTime())) {
+                dataToUpdate[field] = d;
+            } else {
+                console.warn(`Invalid date string for field ${field} in handleUpdateSpd: ${dateValue}`);
+            }
+        }
+    });
+
+    try {
+        await updateDoc(doc(db, COLLECTIONS.NOMOR_SPD, id), dataToUpdate);
+    } catch (err) {
+        console.error("Failed to update SPD:", err);
+        alert('Failed to update SPD.');
+    }
 };
 const handleSaveSpdBatch = async (commonData: Partial<PaymentOverviewInvoice>, relatedInvoices: PaymentOverviewInvoice[]) => {
     const user = auth.currentUser;

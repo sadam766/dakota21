@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { PaymentOverviewInvoice, ConsumerType, SalesType, SalesOrderType } from '../types';
 import { PlusIcon, SearchIcon, ExportIcon, ImportIcon, FilterIcon } from './icons';
@@ -204,7 +203,7 @@ const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, cons
   };
 
   const formatCurrency = (value: number) => {
-    return 'Rp ' + value.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return 'Rp ' + (value || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
   
   return (
