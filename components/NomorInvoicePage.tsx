@@ -37,7 +37,9 @@ const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, cons
     if (!dateString) return '';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) {
-        return dateString;
+        // If the date string from the database is invalid, return it as is or a placeholder.
+        // This prevents the app from crashing.
+        return dateString; 
     }
     return date.toLocaleDateString('id-ID', {day: 'numeric', month: 'numeric', year: 'numeric'});
   };
