@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { SalesType, DocumentType, TaxInvoiceType, PaymentOverviewInvoice } from '../types';
 import {
@@ -350,6 +347,9 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
          if (String(aVal) === '-' || String(bVal) === '-') return String(aVal) === '-' ? 1 : -1;
          const dateA = new Date(String(aVal).split('/').reverse().join('-')).getTime();
          const dateB = new Date(String(bVal).split('/').reverse().join('-')).getTime();
+         if (isNaN(dateA) && isNaN(dateB)) return 0;
+         if (isNaN(dateA)) return 1;
+         if (isNaN(dateB)) return -1;
          return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
       }
       

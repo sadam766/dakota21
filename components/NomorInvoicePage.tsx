@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { PaymentOverviewInvoice, ConsumerType, SalesType, SalesOrderType } from '../types';
 import { PlusIcon, SearchIcon, ExportIcon, ImportIcon, FilterIcon } from './icons';
@@ -31,6 +32,15 @@ const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, cons
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const formatDateDisplay = (dateString: string | undefined) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+        return dateString;
+    }
+    return date.toLocaleDateString('id-ID', {day: 'numeric', month: 'numeric', year: 'numeric'});
+  };
 
   const nextInvoiceNumbers = useMemo(() => {
     // SAR calculation
@@ -278,7 +288,7 @@ const NomorInvoicePage: React.FC<NomorInvoicePageProps> = ({ setActiveView, cons
                     </td>
                     <td className="p-3 text-gray-600 dark:text-gray-300">{invoice.client}</td>
                     <td className="p-3 text-gray-600 dark:text-gray-300">{invoice.soNumber || '-'}</td>
-                    <td className="p-3 text-gray-600 dark:text-gray-300">{invoice.date ? new Date(invoice.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'numeric', year: 'numeric'}) : ''}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-300">{formatDateDisplay(invoice.date)}</td>
                     <td className="p-3 text-gray-800 dark:text-gray-100 font-semibold text-right">{formatCurrency(invoice.amount)}</td>
                     <td className="p-3 text-center space-x-4">
                       <button 

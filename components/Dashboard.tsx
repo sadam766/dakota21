@@ -21,13 +21,17 @@ const Dashboard: React.FC<{
         const currentYear = now.getFullYear();
         const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
         const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        
+        const isValidDate = (d: any) => d && !isNaN(new Date(d).getTime());
 
         // --- Filter data by time periods ---
         const invoicesThisMonth = invoices.filter(inv => {
+            if (!isValidDate(inv.date)) return false;
             const d = new Date(inv.date);
             return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
         const invoicesLastMonth = invoices.filter(inv => {
+            if (!isValidDate(inv.date)) return false;
             const d = new Date(inv.date);
             return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
         });
@@ -35,9 +39,9 @@ const Dashboard: React.FC<{
         const paidInvoicesLastMonth = invoicesLastMonth.filter(inv => inv.status === 'Paid');
 
         // --- Total Revenue ---
-        const totalRevenue = invoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + inv.amount, 0);
-        const revenueThisMonth = paidInvoicesThisMonth.reduce((sum, inv) => sum + inv.amount, 0);
-        const revenueLastMonth = paidInvoicesLastMonth.reduce((sum, inv) => sum + inv.amount, 0);
+        const totalRevenue = invoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + (inv.amount || 0), 0);
+        const revenueThisMonth = paidInvoicesThisMonth.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+        const revenueLastMonth = paidInvoicesLastMonth.reduce((sum, inv) => sum + (inv.amount || 0), 0);
         const revenueTrend = revenueLastMonth > 0 ? ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100 : revenueThisMonth > 0 ? 100 : 0;
 
         // --- Total Customers ---
