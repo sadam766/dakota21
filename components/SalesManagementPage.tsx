@@ -246,10 +246,18 @@ const SalesManagementPage: React.FC<SalesManagementPageProps> = ({ sales, select
     if (!selectedSale || !invoices) return [];
     
     const formatDateForDisplay = (dateStr?: string) => {
-        if (!dateStr || !dateStr.includes('-')) return dateStr || '';
-        const [y, m, d] = dateStr.split('-');
-        if (y && m && d) return `${d}/${m}/${y}`;
-        return dateStr;
+        if (!dateStr) return '';
+        // Handle YYYY-MM-DD format from Firestore date objects
+        if (dateStr.includes('-')) {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+            }
+        }
+        return dateStr; // Return as is if format is not recognized
     };
 
     const taxInvoiceMap = new Map<string, TaxInvoiceType>();
